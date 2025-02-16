@@ -1,12 +1,11 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 import extractors.training_data
 import extractors.environment_info
 import extractors.installed_packages
 import extractors.docker_image_details
 import extractors.model_detail
 import json
-import time
 
 def generate_aibom(dockerfile_path,output_folder, project_root):
     # Create the output folder if it doesn't exist
