@@ -6,37 +6,35 @@ import extractors.installed_packages
 import extractors.docker_image_details
 import extractors.model_detail
 import json
+import docker
+import re
 
-def generate_aibom(dockerfile_path,output_folder, project_root):
-    # Create the output folder if it doesn't exist
+client = docker.from_env()
+
+def generate_aibom(dockerfile_path,output_folder, project_root, container_id):
+
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Use a timezone-aware timestamp
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
+    container = client.containers.get(container_id)
 
-    # Automatically extract details from the train.py file
-    train_file = os.path.join(project_root, "test", "train.py")
+    training_logs = container.logs().decode()
+    progress_bar_pattern = r"\[=[\s=]+\]"
+    filtered_logs = []
+    for line in training_logs.splitlines():
+        if re.search(progress_bar_pattern, line):
+            filtered_logs.append(line)
 
-    # Extract details from the train.py file
-    training_data = extractors.training_data.extract_training_data(train_file)
-    model_architecture, hyperparameters = extractors.model_detail.extract_model_details(train_file)
 
-    # Collect installed packages in the environment (dependencies for the training process)
-    installed_packages = extractors.installed_packages.get_installed_packages()
-
-    # Extract Docker image details from the Dockerfile
+    installed_packages = extractors.installed_packages.extract_installed_packages(container)
+    environment_info = extractors.environment_info.extract_environment_info(container)
     docker_image_details = extractors.docker_image_details.extract_docker_image_details(dockerfile_path)
 
-    # Collect environment details (like Python version, OS)
-    environment_info = extractors.environment_info.get_environment_info()
-
-    # Create the AIBoM dictionary
+    # Create a temporary AIBoM
     aibom = {
-        "training_data": training_data,
-        "model": model_architecture,
-        "hyperparameters": hyperparameters,
         "timestamp": timestamp,
+        "training_logs": filtered_logs,
         "dependencies": installed_packages,
         "docker_image": docker_image_details,
         "environment": environment_info

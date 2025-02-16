@@ -1,9 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.datasets import mnist
-import os
 
-# Load MNIST data
 (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
 train_images = train_images / 255.0
 test_images = test_images / 255.0
@@ -22,10 +20,9 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 # Train the model
-model.fit(train_images, train_labels, epochs=5)
+history = model.fit(train_images, train_labels, epochs=5, validation_data=(test_images, test_labels))
 
-# Save the model to a file (inside the /output folder mounted to the host)
-model.save("/output/model.h5")
+# Save the model
+output_model_path = "/output/model.keras"
+model.save(output_model_path)
 
-# Optionally, print some logs
-print("Model training complete.")

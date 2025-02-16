@@ -1,17 +1,41 @@
-import subprocess
+import docker
 
-def run_user_docker_container(dockerfile_path, output_folder, project_root):
+from docker.errors import BuildError, ContainerError
+from docker.types import LogConfig
 
-    print(f"Building Docker image from {dockerfile_path}...")
-    # Build the Docker image using the project root as the build context
-    subprocess.run(
-        ["docker", "build", "-t", "user-ai-image", "-f", dockerfile_path, "."],
-        cwd=project_root
-    )
+client = docker.from_env()
 
-    # Run the Docker container and mount the output folder
+def run_user_docker_container(user_dockerfile_abs, user_dockerfile, output_folder, project_root):
+    print(f"Building Docker image from {user_dockerfile_abs}...")
+    try:
+        image, _ = client.images.build(
+            path=project_root,
+            dockerfile=user_dockerfile, # relative path
+            tag="user-ai-image"
+        )
+    except BuildError as build_error:
+        print(f"Error building the Docker image: {build_error}")
+        return None
+
     print("Starting Docker container with user's training code...")
-    subprocess.Popen(
-        ["docker", "run", "--rm", "-v", f"{output_folder}:/output", "user-ai-image"],
-        cwd=project_root
-    )
+    try:
+        container = client.containers.run(
+            image.id,
+            remove=False,
+            volumes={output_folder: {'bind': '/output', 'mode': 'rw'}},
+            detach=True,
+            log_config=LogConfig(type="json-file"),  # Set a readable log driver
+            runtime="nvidia"  # Enable GPU (requires NVIDIA runtime installed)
+        )
+    except ContainerError as container_error:
+        print(f"Error running the Docker container: {container_error}")
+        return None
+
+    return container.id
+
+def wait_for_container(container_id):
+    container = client.containers.get(container_id)
+    for log in container.logs(stream=True):
+        print(log.decode(), end="")
+    container.wait()
+    print("Training completed.")
