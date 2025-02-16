@@ -11,9 +11,9 @@ AIBoMGen is a proof-of-concept tool designed to automatically generate an AI Bil
 ## Repository Structure
 
 - **src/**: Contains the main Python code and logic for AIBoMGen.
-- **test/**: Includes example training scripts and Dockerfiles for image generation to test.
-- **test/Dockerfile**: Defines the base image and setup for the Docker container used for model training.
-- **test/requirements.txt**: Lists all Python dependencies required for the project.
+- **test/**: Includes example training scripts and Dockerfiles to test.
+- **test/Dockerfile**: Defines the base image and setup for the Docker container where your model will be trained.
+- **test/requirements.txt**: Lists all dependencies required for your AI model training environment.
 - **output/**: Directory where generated AIBoM and model artifacts are saved.
 
 ## Setup
