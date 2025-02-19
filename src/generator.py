@@ -1,24 +1,52 @@
 import os
 from datetime import datetime
-import extractors.training_data
 import extractors.environment_info
 import extractors.installed_packages
 import extractors.docker_image_details
-import extractors.model_detail
+import extractors.gpu_info
 import json
 import docker
 import re
 
 client = docker.from_env()
 
-def generate_aibom(dockerfile_path,output_folder, project_root, container_id):
+# Global AIBoM dictionary
+aibom = {}
 
+def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, container_id):
+    """
+    Collect initial data (environment info and installed packages) as soon as the container starts.
+    """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
     container = client.containers.get(container_id)
 
+    # Extract environment and installed packages before training
+    installed_packages = extractors.installed_packages.extract_installed_packages(container)
+    environment_info = extractors.environment_info.extract_environment_info(container)
+    docker_image_details = extractors.docker_image_details.extract_docker_image_details(dockerfile_path)
+    gpu_info = extractors.gpu_info.extract_gpu_info(container)
+
+    # Initialize the AIBoM with start data
+    aibom.update({
+        "start": timestamp,
+        "dependencies": installed_packages,
+        "docker_image": docker_image_details,
+        "environment": environment_info,
+        "gpu": gpu_info  # Collect GPU data at the start
+    })
+
+
+def generate_aibom_after_training(dockerfile_path, output_folder, project_root, container_id):
+    """
+    Generate the AIBoM after training has completed (logs, model details, etc.).
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
+    container = client.containers.get(container_id)
+
+    # Extract training logs
     training_logs = container.logs().decode()
     progress_bar_pattern = r"\[=[\s=]+\]"
     filtered_logs = []
@@ -26,23 +54,16 @@ def generate_aibom(dockerfile_path,output_folder, project_root, container_id):
         if re.search(progress_bar_pattern, line):
             filtered_logs.append(line)
 
-
-    installed_packages = extractors.installed_packages.extract_installed_packages(container)
-    environment_info = extractors.environment_info.extract_environment_info(container)
-    docker_image_details = extractors.docker_image_details.extract_docker_image_details(dockerfile_path)
-
-    # Create a temporary AIBoM
-    aibom = {
-        "timestamp": timestamp,
+    # Update AIBoM with the final data
+    aibom.update({
+        "end": timestamp,
         "training_logs": filtered_logs,
-        "dependencies": installed_packages,
-        "docker_image": docker_image_details,
-        "environment": environment_info
-    }
+        # Add other final data here (like model details, etc.)
+    })
 
-    # Save the AIBoM as a JSON file in the output folder
+    # Save the final AIBoM as a JSON file in the output folder
     aibom_file_path = os.path.join(output_folder, "aibom.json")
     with open(aibom_file_path, "w") as f:
         json.dump(aibom, f, indent=4)
 
-    print(f"AIBoM generated at {aibom_file_path}")
+    print(f"Final AIBoM generated at {aibom_file_path}")

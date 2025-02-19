@@ -4,29 +4,17 @@ client = docker.from_env()
 
 def extract_environment_info(container):
     """
-    Extract Python version and OS info from a stopped container
-    by running a temporary container.
+    Extract Python version and OS info from a running container by executing commands
+    directly inside the container.
     """
-    image_id = container.image.id  # Get the image of the stopped container
+    print("Extracting environment info from the running container...")
 
-    print("Extracting environment info using a temporary container...")
+    # Run the `python --version` command inside the running container
+    python_version_result = container.exec_run("python --version", stdout=True, stderr=True)
+    python_version = python_version_result.output.decode().strip()
 
-    # Run a temporary container to get Python version
-    python_version = client.containers.run(
-        image=image_id,
-        command="python --version",
-        remove=True,
-        detach=False,
-        stdout=True
-    ).decode().strip()
-
-    # Run another temporary container to get OS info
-    os_info = client.containers.run(
-        image=image_id,
-        command="uname -a",
-        remove=True,
-        detach=False,
-        stdout=True
-    ).decode().strip()
+    # Run the `uname -a` command inside the running container to get OS info
+    os_info_result = container.exec_run("uname -a", stdout=True, stderr=True)
+    os_info = os_info_result.output.decode().strip()
 
     return {"python_version": python_version, "os": os_info}

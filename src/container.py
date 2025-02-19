@@ -21,6 +21,7 @@ def run_user_docker_container(user_dockerfile_abs, user_dockerfile, output_folde
     try:
         container = client.containers.run(
             image.id,
+            name="user-ai-container",
             remove=False,
             volumes={output_folder: {'bind': '/output', 'mode': 'rw'}},
             detach=True,
