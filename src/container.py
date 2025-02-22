@@ -21,7 +21,7 @@ def run_user_docker_container(user_dockerfile_abs, user_dockerfile, output_folde
 
     volumes = {
         output_folder_abs: {'bind': '/output', 'mode': 'rw'},
-        mounted_data_abs: {'bind': '/user_mounted_data/mnist_data', 'mode': 'ro'}  # Mount dataset as read-only
+        mounted_data_abs: {'bind': '/user_mounted_data/mnist_data', 'mode': 'rw'}  # Mount dataset as read-only
     }
 
     try:
