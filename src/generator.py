@@ -16,7 +16,7 @@ client = docker.from_env()
 # Global AIBoM dictionary
 aibom = {}
 
-def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, container_id):
+def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, container_id, mounted_data_abs):
     """
     Collect initial data (environment info and installed packages) as soon as the container starts.
     """
@@ -45,7 +45,7 @@ def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, con
     mount_point = "/user_mounted_data/mnist_data"  # Replace with the path of your mounted data
     file_access_thread = threading.Thread(
         target=extractors.mounted_data_access.monitor_file_access_in_container,
-        args=(container, mount_point, lambda log: extractors.mounted_data_access.log_file_access(log, aibom))
+        args=(container, mount_point, lambda log: extractors.mounted_data_access.log_file_access(log, aibom, mount_point, container, mounted_data_abs))
     )
     file_access_thread.start()
 

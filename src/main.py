@@ -8,6 +8,7 @@ def main():
     mounted_data = "user_mounted_data/mnist_data"
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+
     # Construct the absolute path to the Dockerfile
     user_dockerfile_abs = os.path.join(project_root, user_dockerfile)
     output_folder_abs = os.path.join(project_root, output_folder)
@@ -18,7 +19,7 @@ def main():
     print("Container started, collecting environment and package information...")
 
     # Part 1: Extract environment and installed packages as soon as the container is running
-    generator.collect_initial_aibom_data(user_dockerfile_abs, output_folder_abs, project_root, container_id)
+    generator.collect_initial_aibom_data(user_dockerfile_abs, output_folder_abs, project_root, container_id, mounted_data_abs)
 
     print("Waiting for training to complete...")
     container.wait_for_container(container_id)

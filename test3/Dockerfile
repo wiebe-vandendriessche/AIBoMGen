@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxext6 \
     inotify-tools \
+    lsof \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
