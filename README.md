@@ -29,4 +29,3 @@ AIBoMGen is a proof-of-concept tool designed to automatically generate an AI Bil
      - `Dockerfile`
 4. Run the `main.py` file in the `src/`
 
-![AIBoMGen-drawio-draw-io-02-19-2025_03_51_PM](https://github.ugent.be/wievdndr/AIBoMGen/assets/13326/a4cc837c-efd4-4f50-aff3-9dd58b8e5416)
