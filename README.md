@@ -28,3 +28,5 @@ AIBoMGen is a proof-of-concept tool designed to automatically generate an AI Bil
      - `requirements.txt` file
      - `Dockerfile`
 4. Run the `main.py` file in the `src/`
+
+<img width="795" alt="Schermafbeelding 2025-02-23 121225" src="https://github.ugent.be/wievdndr/AIBoMGen/assets/13326/7ada3164-8b98-42bc-ba0a-af46a72d3f85">
