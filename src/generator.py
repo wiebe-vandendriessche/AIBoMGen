@@ -10,6 +10,7 @@ import docker
 import re
 import time
 import threading
+import cyclonedx_generator
 
 client = docker.from_env()
 
@@ -35,10 +36,10 @@ def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, con
     # Initialize the AIBoM with start data
     aibom.update({
         "start": timestamp,
-        "dependencies": installed_packages,
+        "installed_packages": installed_packages,
         "docker_image": docker_image_details,
-        "environment": environment_info,
-        "gpu": gpu_info  # Collect GPU data at the start
+        "environment_info": environment_info,
+        "gpu_info": gpu_info  # Collect GPU data at the start
     })
 
     # Start monitoring file accesses in the background (use the mount point you want to track)
@@ -71,9 +72,6 @@ def generate_aibom_after_training(dockerfile_path, output_folder, project_root, 
         # Add other final data here (like model details, etc.)
     })
 
-    # Save the final AIBoM as a JSON file in the output folder
-    aibom_file_path = os.path.join(output_folder, "aibom.json")
-    with open(aibom_file_path, "w") as f:
-        json.dump(aibom, f, indent=4)
+    cyclonedx_generator.generate_cyclonedx_format(aibom, output_folder)
 
-    print(f"Final AIBoM generated at {aibom_file_path}")
+

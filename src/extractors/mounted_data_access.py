@@ -77,8 +77,8 @@ def log_file_access(file_access_log, aibom, mount_point, container, mounted_data
     file_hash = compute_file_hash_on_host(full_file_path)
 
     if file_hash:
-        if "file_access_logs" not in aibom:
-            aibom["file_access_logs"] = []
-        aibom["file_access_logs"].append({"file": full_file_path, "hash": file_hash})
+        if "mounted_data_access" not in aibom:
+            aibom["mounted_data_access"] = []
+        aibom["mounted_data_access"].append({"file": full_file_path, "hash": file_hash})
     else:
         print(f"Failed to compute hash for file: {full_file_path}")
