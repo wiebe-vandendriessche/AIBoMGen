@@ -47,7 +47,9 @@ def generate_cyclonedx_format(aibom, output_folder):
         description=aibom.get("description", "No description available"),
         bom_ref="ai-model",
         properties=[
-            Property(name="category", value="custom-training")
+            Property(name="category", value="custom-training"),
+            Property(name="mlflow_output", value=aibom.get("mlflow_output", "No mlflow_output available")),
+            Property(name="mlflow_errors", value=aibom.get("mlflow_errors", "No mlflow_errors available")),
         ],
     )
     bom.components.add(model_component)

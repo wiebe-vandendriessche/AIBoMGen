@@ -15,12 +15,16 @@ RUN apt-get update && apt-get install -y \
 COPY test3/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 ENV TF_CPP_MIN_LOG_LEVEL=2
+ENV GIT_PYTHON_REFRESH=quiet
 
-# Copy training script
 COPY test3/train.py /app/train.py
+COPY test3/train_wrapper.py /app/train_wrapper.py
 
 # Ensure output directory exists
 RUN mkdir -p /output
 
-# Run training
-CMD ["python", "train.py"]
+# Expose port for potential MLflow UI or other purposes
+EXPOSE 5000
+
+# Run training through the wrapper
+CMD ["python", "train_wrapper.py"]

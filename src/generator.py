@@ -11,6 +11,8 @@ import re
 import time
 import threading
 import cyclonedx_generator
+import mlflow
+from mlflow.tracking import MlflowClient
 
 client = docker.from_env()
 
@@ -50,6 +52,7 @@ def collect_initial_aibom_data(dockerfile_path, output_folder, project_root, con
     )
     file_access_thread.start()
 
+
 def generate_aibom_after_training(dockerfile_path, output_folder, project_root, container_id):
     """
     Generate the AIBoM after training has completed (logs, model details, etc.).
@@ -72,6 +75,45 @@ def generate_aibom_after_training(dockerfile_path, output_folder, project_root, 
         # Add other final data here (like model details, etc.)
     })
 
+    # Retrieve MLflow data during training (while the container is running)
+    # Retrieve MLflow data from the log files in the output folder
+    mlflow_data = read_mlflow_data_from_logs(output_folder)
+    if mlflow_data:
+        add_mlflow_data_to_aibom(mlflow_data)
+
+
     cyclonedx_generator.generate_cyclonedx_format(aibom, output_folder)
 
+def read_mlflow_data_from_logs(output_folder):
+    """
+    Reads MLflow data (logs) from the output folder.
+    """
+    mlflow_data = {}
 
+    try:
+        with open(os.path.join(output_folder, 'training_output.log'), 'r') as log_file:
+            # Add logic to extract relevant data from the logs if necessary
+            mlflow_data['output'] = log_file.read()
+
+        with open(os.path.join(output_folder, 'training_errors.log'), 'r') as error_file:
+            # Add logic to extract relevant data from the error logs if necessary
+            mlflow_data['errors'] = error_file.read()
+
+    except FileNotFoundError as e:
+        print(f"Error reading MLflow log files: {e}")
+
+    return mlflow_data
+
+
+def add_mlflow_data_to_aibom(mlflow_data):
+    """
+    Adds MLflow log data to the AIBoM.
+    """
+    if mlflow_data:
+        if 'output' in mlflow_data:
+            aibom["mlflow_output"] = mlflow_data['output']
+
+        if 'errors' in mlflow_data:
+            aibom["mlflow_errors"] = mlflow_data['errors']
+
+    print("MLflow data added to AIBoM.")

@@ -28,6 +28,7 @@ def monitor_file_access_in_container(container, mount_point, log_callback):
         exec_instance = container.exec_run(command, stream=True, stdout=True, stderr=True)
         for line in exec_instance.output:
             decoded_line = line.decode().strip()
+
             print(f"File accessed: {decoded_line}")
             log_callback(decoded_line)
     except Exception as e:
@@ -58,6 +59,11 @@ def log_file_access(file_access_log, aibom, mount_point, container, mounted_data
     Log file access into the AIBoM dictionary along with the file hash.
     """
     print(f"Logging file access: {file_access_log}")
+
+    # Skip log entries related to setting up inotify watches
+    if "Setting up watches" in file_access_log or "Watches established" in file_access_log:
+        print("...")
+        return
 
     # Extracting the file name from the log entry
     try:
