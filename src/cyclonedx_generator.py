@@ -40,7 +40,9 @@ def generate_cyclonedx_format(aibom, output_folder):
         )
     )
 
+
     # Model component (main model)
+    # needs to be widely extended with mlflow data
     model_component = Component(
         type=ComponentType.MACHINE_LEARNING_MODEL,
         name=aibom.get("model_name", "Unknown Model"),
@@ -48,10 +50,34 @@ def generate_cyclonedx_format(aibom, output_folder):
         bom_ref="ai-model",
         properties=[
             Property(name="category", value="custom-training"),
-            Property(name="mlflow_output", value=aibom.get("mlflow_output", "No mlflow_output available")),
-            Property(name="mlflow_errors", value=aibom.get("mlflow_errors", "No mlflow_errors available")),
+            Property(name="mlflow_experiment_id", value=aibom["mlflow_info"].get("experiment_id", "N/A")),
+            Property(name="mlflow_experiment_name", value=aibom["mlflow_info"].get("experiment_name", "N/A")),
+            Property(name="mlflow_run_id", value=aibom["mlflow_info"].get("run_id", "N/A")),
+            Property(name="mlflow_run_start_time", value=str(aibom["mlflow_info"].get("run_start_time", "N/A"))),
+            Property(name="mlflow_run_end_time", value=str(aibom["mlflow_info"].get("run_end_time", "N/A"))),
+            Property(name="mlflow_status", value=aibom["mlflow_info"].get("status", "N/A")),
         ],
     )
+
+    # Add MLflow parameters
+    for param, value in aibom["mlflow_info"].get("parameters", {}).items():
+        model_component.properties.add(Property(name=f"mlflow_param_{param}", value=str(value)))
+
+    # Add MLflow metrics
+    for metric, value in aibom["mlflow_info"].get("metrics", {}).items():
+        model_component.properties.add(Property(name=f"mlflow_metric_{metric}", value=str(value)))
+
+    # Add MLflow tags
+    for tag, value in aibom["mlflow_info"].get("tags", {}).items():
+        model_component.properties.add(Property(name=f"mlflow_tag_{tag}", value=str(value)))
+
+    # Include MLflow artifacts
+    for artifact in aibom["mlflow_info"].get("artifacts", []):
+        model_component.properties.add(Property(name="mlflow_artifact", value=artifact))
+
+    model_summary = aibom["mlflow_info"].get("model_summary", "N/A")
+    model_component.properties.add(Property(name="model_summary", value=model_summary))
+
     bom.components.add(model_component)
 
     installed_components = []  # Store installed components for dependencies

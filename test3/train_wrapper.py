@@ -5,6 +5,7 @@ import train
 # Set the output folder where the logs will be stored
 output_folder = "/output"  # Make sure this path matches your Docker volume mapping
 
+
 # Set MLflow's tracking URI to use the /output directory for artifacts
 mlflow.set_tracking_uri(f"file://{output_folder}/mlruns")
 
