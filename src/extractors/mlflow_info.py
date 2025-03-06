@@ -44,7 +44,14 @@ def extract_mlflow_info(aibom, output_folder):
             aibom["mlflow_info"] = "No MLflow runs found"
             return
 
+        print(f"Runs for experiment: {experiment.name}")
+        for run in runs:
+            print(f"Run ID: {run.info.run_id}")
+            print(f"  Start Time: {run.info.start_time}")
+            print(f"  End Time: {run.info.end_time}")
+
         run = runs[0]
+        print("Experiment Name:", experiment.name)
 
         artifacts = [str(artifact) for artifact in client.list_artifacts(run.info.run_id)] if client.list_artifacts(run.info.run_id) else []
 

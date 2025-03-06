@@ -1,0 +1,15 @@
+artifact_uri: file:///output/mlruns/887974103577279758/ef540464326c44679aee6b9166c99f47/artifacts
+end_time: 1740920667304
+entry_point_name: ''
+experiment_id: '887974103577279758'
+lifecycle_stage: active
+run_id: ef540464326c44679aee6b9166c99f47
+run_name: rogue-zebra-197
+run_uuid: ef540464326c44679aee6b9166c99f47
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1740920618217
+status: 3
+tags: []
+user_id: root

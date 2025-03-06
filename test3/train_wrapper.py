@@ -16,6 +16,13 @@ mlflow.start_run()
 # Enable TensorFlow autologging or other framework autologging if needed
 mlflow.tensorflow.autolog()  # Replace with the relevant autologging method for your framework
 
+print("Current Tracking URI:", mlflow.get_tracking_uri())
+# Print the current run ID
+current_run_id = mlflow.active_run().info.run_id
+current_experiment = mlflow.get_experiment_by_name("my_experiment")
+print("Current Run ID:", current_run_id)
+print(current_experiment)
+
 # Run train.py code in the same process
 train_file = "train.py"  # Provide the correct path to train.py
 

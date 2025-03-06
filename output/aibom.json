@@ -1,0 +1,972 @@
+{
+    "components": [
+        {
+            "bom-ref": "docker-image",
+            "name": "Unknown Image",
+            "type": "container",
+            "version": "Unknown Version"
+        },
+        {
+            "bom-ref": "dataset-c5b45806d970e809a5f376f9b8461b7ca3b3e0a321282d72d06d00ab6c6c418f",
+            "description": "Dataset used for training",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "c5b45806d970e809a5f376f9b8461b7ca3b3e0a321282d72d06d00ab6c6c418f"
+                }
+            ],
+            "name": "C:/Users/wiebe/Desktop/.ugent20242025/masterproef_local/AIBoMGen/user_mounted_data/mnist_data/train_images.npy",
+            "properties": [
+                {
+                    "name": "dataset-hash",
+                    "value": "c5b45806d970e809a5f376f9b8461b7ca3b3e0a321282d72d06d00ab6c6c418f"
+                },
+                {
+                    "name": "file-path",
+                    "value": "C:/Users/wiebe/Desktop/.ugent20242025/masterproef_local/AIBoMGen/user_mounted_data/mnist_data/train_images.npy"
+                }
+            ],
+            "type": "data"
+        },
+        {
+            "bom-ref": "dataset-5dd4d822cab3e20099239bc9d433d587ae3ce00e084d191079dd30b38380b336",
+            "description": "Dataset used for training",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "5dd4d822cab3e20099239bc9d433d587ae3ce00e084d191079dd30b38380b336"
+                }
+            ],
+            "name": "C:/Users/wiebe/Desktop/.ugent20242025/masterproef_local/AIBoMGen/user_mounted_data/mnist_data/train_labels.npy",
+            "properties": [
+                {
+                    "name": "dataset-hash",
+                    "value": "5dd4d822cab3e20099239bc9d433d587ae3ce00e084d191079dd30b38380b336"
+                },
+                {
+                    "name": "file-path",
+                    "value": "C:/Users/wiebe/Desktop/.ugent20242025/masterproef_local/AIBoMGen/user_mounted_data/mnist_data/train_labels.npy"
+                }
+            ],
+            "type": "data"
+        },
+        {
+            "bom-ref": "gpu-info",
+            "description": "Training executed on Tue Mar  4 12:20:40 2025       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 550.76.01              Driver Version: 552.22         CUDA Version: 12.4     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA GeForce RTX 3060 ...    On  |   00000000:01:00.0  On |                  N/A |\n| N/A   57C    P8             17W /  130W |    1881MiB /   6144MiB |      0%      Default |\n|                                         |                        |                  N/A |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    0   N/A  N/A        24      G   /Xwayland                                   N/A      |\n|    0   N/A  N/A        27      G   /Xwayland                                   N/A      |\n|    0   N/A  N/A        31      G   /Xwayland                                   N/A      |\n+-----------------------------------------------------------------------------------------+",
+            "name": "Hardware",
+            "type": "device"
+        },
+        {
+            "bom-ref": "package",
+            "name": "Deprecated",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.30949646194508473.4128815885317456",
+            "name": "GitPython",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.10993494943697091.7251186490183966",
+            "name": "Mako",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.12431437372187859.5822930752235672",
+            "name": "Markdown",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.20383363468701154.8375197772140165",
+            "name": "MarkupSafe",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.11666899579250001.5870103782780808",
+            "name": "PyGObject",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.182784492957617.366675620677705",
+            "name": "PyYAML",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.906368812441705.8992129439184791",
+            "name": "SQLAlchemy",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4554993213190881.8021860073731447",
+            "name": "Werkzeug",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6262514831832796.5242456895506968",
+            "name": "absl-py",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5799468678597632.1921902126223074",
+            "name": "alembic",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4751119616225947.05331947876533527",
+            "name": "astunparse",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8164961751109229.9791934387306568",
+            "name": "blinker",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9389270361041315.34297831799416034",
+            "name": "cachetools",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.43489461213225855.03586254879109363",
+            "name": "certifi",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.06627633411771694.5432208894940327",
+            "name": "chardet",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.3231629759600727.5135861314768226",
+            "name": "click",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6319127838563285.8772362901270797",
+            "name": "cloudpickle",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.49666801117492065.7487715287968368",
+            "name": "contourpy",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.23415424290731646.39835373712887157",
+            "name": "cycler",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5290539696818177.9995231389671343",
+            "name": "databricks-sdk",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4572659190427243.5372752984785276",
+            "name": "dbus-python",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8808705333140149.49265720605204344",
+            "name": "docker",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.14942083463537237.4487251245489826",
+            "name": "filelock",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8399544634326417.1759577803671174",
+            "name": "flask",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6861550946587326.851477264352039",
+            "name": "flatbuffers",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8257530690716012.9432882764498639",
+            "name": "fonttools",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.2723757748060931.3724122934051348",
+            "name": "fsspec",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5389393334008546.3008669571106548",
+            "name": "gast",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4706136310143094.9982809543711615",
+            "name": "gitdb",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9408712972333639.33289552585951476",
+            "name": "google-auth",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5334231772530441.48307987867399416",
+            "name": "google-auth-oauthlib",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.11468189718849398.3899778367895087",
+            "name": "google-pasta",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5653128373570933.7412215978668533",
+            "name": "graphene",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.21801336816388595.48721981840538875",
+            "name": "graphql-core",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.525939337913114.6983871337138788",
+            "name": "graphql-relay",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7968823062025467.10153699188091658",
+            "name": "greenlet",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8866593872199331.732355946079685",
+            "name": "grpcio",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.06548995058693086.2232170970483136",
+            "name": "gunicorn",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8240233396832064.8292769107135054",
+            "name": "h5py",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.13804072557071378.6070571013587266",
+            "name": "idna",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.619340306721458.7027215405275293",
+            "name": "importlib-metadata",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.23086166148767695.7310967498409905",
+            "name": "importlib-resources",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.49419162944146.5944375902504778",
+            "name": "itsdangerous",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.21138321497593027.15228564880931317",
+            "name": "jinja2",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9407239692132295.15915454198391932",
+            "name": "joblib",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6085178665152136.05865780168225199",
+            "name": "keras",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7548977631135445.7410850130530899",
+            "name": "kiwisolver",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.133114903915729.5888272664740466",
+            "name": "libclang",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5464359530587789.9243202049866637",
+            "name": "matplotlib",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9200254088123281.070015556130537",
+            "name": "mlflow",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.36614218722998026.6943049331397875",
+            "name": "mlflow-skinny",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.1081172277791177.452286438060982",
+            "name": "mpmath",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6432348002196652.06938782691801415",
+            "name": "networkx",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7584438881709267.26521248474455095",
+            "name": "numpy",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.19051839751983657.4622142962158613",
+            "name": "nvidia-cublas-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.42197486853861454.7688605473943112",
+            "name": "nvidia-cuda-cupti-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9601783970944103.49978240400494134",
+            "name": "nvidia-cuda-nvrtc-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.464124314640318.7836492788650089",
+            "name": "nvidia-cuda-runtime-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9623681582306164.9500216661328914",
+            "name": "nvidia-cudnn-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7239457017293368.6266975030442353",
+            "name": "nvidia-cufft-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8355400319427868.6403818594111806",
+            "name": "nvidia-curand-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.776057501813186.4442960549576712",
+            "name": "nvidia-cusolver-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.46686222727603466.665024267705985",
+            "name": "nvidia-cusparse-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.614419999009245.5081387036544419",
+            "name": "nvidia-nccl-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4951937584275721.2471795183065797",
+            "name": "nvidia-nvjitlink-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.3610577368921828.9620234986990988",
+            "name": "nvidia-nvtx-cu12",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.22967393809185344.5779981710183456",
+            "name": "oauthlib",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4520359303316297.9538963455811056",
+            "name": "opentelemetry-api",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.03727504070356091.6797722426662078",
+            "name": "opentelemetry-sdk",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.20528668890910773.5548534442136536",
+            "name": "opentelemetry-semantic-conventions",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4069985405730454.8036481532241938",
+            "name": "opt-einsum",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8050221509811848.6961656335748782",
+            "name": "packaging",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4873824835994395.8532517254300891",
+            "name": "pandas",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.09292450393230733.5512633610314752",
+            "name": "pillow",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8594972064790906.4769626138960934",
+            "name": "protobuf",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6641426369271309.7653119556091877",
+            "name": "pyarrow",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7666254291573202.26539473619384624",
+            "name": "pyasn1",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7423514214571152.15596268025582027",
+            "name": "pyasn1-modules",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4075904047024004.6840002675955302",
+            "name": "pyparsing",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4846199432171868.11458320021092183",
+            "name": "python-apt",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.017674316895750164.7332453387922934",
+            "name": "python-dateutil",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8838518716832291.9482166175434591",
+            "name": "pytz",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.1207740081403228.3722507606409228",
+            "name": "requests",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.892478544162256.029012323097025394",
+            "name": "requests-oauthlib",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4070104388630139.11973542764916245",
+            "name": "requests-unixsocket",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5161829400704805.5013307388187231",
+            "name": "rsa",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.27603769429337943.566147048254816",
+            "name": "scikit-learn",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.17948858467839368.10908882671615827",
+            "name": "scipy",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7753998304798934.6769736565145207",
+            "name": "six",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9984973121759441.07514068986402023",
+            "name": "smmap",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9862955005103051.5972025524244656",
+            "name": "sqlparse",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.08048283320147398.8515575149847802",
+            "name": "sympy",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6089578759595177.734844705267079",
+            "name": "tensorboard",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.14558492167829218.5383812053207971",
+            "name": "tensorboard-data-server",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.3557131701966313.17331478453411853",
+            "name": "tensorboard-plugin-wit",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.11287296404205571.5948063871520968",
+            "name": "tensorflow",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7214530445173326.9519108498162463",
+            "name": "tensorflow-estimator",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7722135616073585.09169713131792412",
+            "name": "tensorflow-io-gcs-filesystem",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.6670940089948759.6152992415471962",
+            "name": "termcolor",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.7753369951512046.02863882028137732",
+            "name": "threadpoolctl",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4080948201164156.3771221064233753",
+            "name": "torch",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.5011480663993733.4362385021838967",
+            "name": "triton",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.8343443467368656.908157247668775",
+            "name": "typing-extensions",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.3571756167925386.19719351554273135",
+            "name": "tzdata",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9176866737498561.2792170938103523",
+            "name": "urllib3",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.4540288930572489.7555715564067805",
+            "name": "wrapt",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "BomRef.9983712959708864.7041121356017582",
+            "name": "zipp",
+            "type": "library",
+            "version": "not yet done"
+        },
+        {
+            "bom-ref": "ai-model",
+            "description": "No description available",
+            "name": "Unknown Model",
+            "properties": [
+                {
+                    "name": "category",
+                    "value": "custom-training"
+                },
+                {
+                    "name": "mlflow_artifact",
+                    "value": "<FileInfo: file_size=2218, is_dir=False, path='model_summary.txt'>"
+                },
+                {
+                    "name": "mlflow_artifact",
+                    "value": "<FileInfo: file_size=None, is_dir=True, path='checkpoints'>"
+                },
+                {
+                    "name": "mlflow_artifact",
+                    "value": "<FileInfo: file_size=None, is_dir=True, path='model'>"
+                },
+                {
+                    "name": "mlflow_artifact",
+                    "value": "<FileInfo: file_size=None, is_dir=True, path='tensorboard_logs'>"
+                },
+                {
+                    "name": "mlflow_experiment_id",
+                    "value": "668520788381891749"
+                },
+                {
+                    "name": "mlflow_experiment_name",
+                    "value": "my_experiment"
+                },
+                {
+                    "name": "mlflow_metric_accuracy",
+                    "value": "0.9768166542053223"
+                },
+                {
+                    "name": "mlflow_metric_loss",
+                    "value": "0.07495865970849991"
+                },
+                {
+                    "name": "mlflow_metric_val_accuracy",
+                    "value": "0.9771999716758728"
+                },
+                {
+                    "name": "mlflow_metric_val_loss",
+                    "value": "0.07193438708782196"
+                },
+                {
+                    "name": "mlflow_metric_validation_accuracy",
+                    "value": "0.9771999716758728"
+                },
+                {
+                    "name": "mlflow_metric_validation_loss",
+                    "value": "0.07193438708782196"
+                },
+                {
+                    "name": "mlflow_param_batch_size",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_class_weight",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_epochs",
+                    "value": "5"
+                },
+                {
+                    "name": "mlflow_param_initial_epoch",
+                    "value": "0"
+                },
+                {
+                    "name": "mlflow_param_opt_amsgrad",
+                    "value": "False"
+                },
+                {
+                    "name": "mlflow_param_opt_beta_1",
+                    "value": "0.9"
+                },
+                {
+                    "name": "mlflow_param_opt_beta_2",
+                    "value": "0.999"
+                },
+                {
+                    "name": "mlflow_param_opt_clipnorm",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_clipvalue",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_ema_momentum",
+                    "value": "0.99"
+                },
+                {
+                    "name": "mlflow_param_opt_ema_overwrite_frequency",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_epsilon",
+                    "value": "1e-07"
+                },
+                {
+                    "name": "mlflow_param_opt_global_clipnorm",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_gradient_accumulation_steps",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_learning_rate",
+                    "value": "0.0010000000474974513"
+                },
+                {
+                    "name": "mlflow_param_opt_loss_scale_factor",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_opt_name",
+                    "value": "adam"
+                },
+                {
+                    "name": "mlflow_param_opt_use_ema",
+                    "value": "False"
+                },
+                {
+                    "name": "mlflow_param_opt_weight_decay",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_sample_weight",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_shuffle",
+                    "value": "True"
+                },
+                {
+                    "name": "mlflow_param_steps_per_epoch",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_validation_batch_size",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_param_validation_freq",
+                    "value": "1"
+                },
+                {
+                    "name": "mlflow_param_validation_split",
+                    "value": "0.0"
+                },
+                {
+                    "name": "mlflow_param_validation_steps",
+                    "value": "None"
+                },
+                {
+                    "name": "mlflow_run_end_time",
+                    "value": "1740846344193"
+                },
+                {
+                    "name": "mlflow_run_id",
+                    "value": "442c04e565754924a2aa1f5d2d6f7335"
+                },
+                {
+                    "name": "mlflow_run_start_time",
+                    "value": "1740846318241"
+                },
+                {
+                    "name": "mlflow_status",
+                    "value": "FINISHED"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.latest_checkpoint_artifact",
+                    "value": "checkpoints/latest_checkpoint.h5"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.log-model.history",
+                    "value": "[{\"run_id\": \"442c04e565754924a2aa1f5d2d6f7335\", \"artifact_path\": \"model\", \"utc_time_created\": \"2025-03-01 16:25:36.201509\", \"model_uuid\": \"d78cec0259174765981a4c10115e0755\", \"flavors\": {\"tensorflow\": {\"code\": null, \"data\": \"data\", \"model_type\": \"keras\", \"keras_version\": \"2.18.0\", \"save_format\": \"tf\"}, \"python_function\": {\"loader_module\": \"mlflow.tensorflow\", \"python_version\": \"3.12.2\", \"data\": \"data\", \"env\": {\"conda\": \"conda.yaml\", \"virtualenv\": \"python_env.yaml\"}}}}]"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.runName",
+                    "value": "sneaky-skunk-374"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.source.name",
+                    "value": "c:\\Users\\wiebe\\Desktop\\.ugent20242025\\masterproef_local\\test\\train.py"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.source.type",
+                    "value": "LOCAL"
+                },
+                {
+                    "name": "mlflow_tag_mlflow.user",
+                    "value": "wiebe"
+                },
+                {
+                    "name": "model_summary",
+                    "value": "Model: \"sequential\"\r\n\u250f\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513\r\n\u2503 Layer (type)                         \u2503 Output Shape                \u2503         Param # \u2503\r\n\u2521\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2529\r\n\u2502 flatten (Flatten)                    \u2502 (None, 784)                 \u2502               0 \u2502\r\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\r\n\u2502 dense (Dense)                        \u2502 (None, 128)                 \u2502         100,480 \u2502\r\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\r\n\u2502 dropout (Dropout)                    \u2502 (None, 128)                 \u2502               0 \u2502\r\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\r\n\u2502 dense_1 (Dense)                      \u2502 (None, 10)                  \u2502           1,290 \u2502\r\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\r\n Total params: 101,770 (397.54 KB)\r\n Trainable params: 101,770 (397.54 KB)\r\n Non-trainable params: 0 (0.00 B)\r\n"
+                }
+            ],
+            "type": "machine-learning-model"
+        }
+    ],
+    "dependencies": [
+        {
+            "dependsOn": [
+                "dataset-5dd4d822cab3e20099239bc9d433d587ae3ce00e084d191079dd30b38380b336",
+                "dataset-c5b45806d970e809a5f376f9b8461b7ca3b3e0a321282d72d06d00ab6c6c418f",
+                "BomRef.6262514831832796.5242456895506968"
+            ],
+            "ref": "ai-model"
+        },
+        {
+            "ref": "dataset-5dd4d822cab3e20099239bc9d433d587ae3ce00e084d191079dd30b38380b336"
+        },
+        {
+            "ref": "dataset-c5b45806d970e809a5f376f9b8461b7ca3b3e0a321282d72d06d00ab6c6c418f"
+        },
+        {
+            "ref": "docker-image"
+        },
+        {
+            "ref": "gpu-info"
+        },
+        {
+            "ref": "BomRef.6262514831832796.5242456895506968"
+        }
+    ],
+    "metadata": {
+        "timestamp": "2025-03-04T12:21:40.013890+00:00",
+        "tools": {
+            "components": [
+                {
+                    "group": "Ghent University",
+                    "licenses": [
+                        {
+                            "license": {
+                                "id": "MIT"
+                            }
+                        }
+                    ],
+                    "name": "AIBoMGen",
+                    "supplier": {
+                        "name": "Ghent University",
+                        "url": [
+                            "https://www.ugent.be/"
+                        ]
+                    },
+                    "type": "platform",
+                    "version": "0.1.0"
+                }
+            ]
+        }
+    },
+    "serialNumber": "urn:uuid:f0b8a3bc-8bd4-485b-a0bb-be566aa73b99",
+    "version": 1,
+    "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.5"
+}
