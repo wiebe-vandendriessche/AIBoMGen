@@ -1,0 +1,22 @@
+services:
+  user:
+    image: aibomgen_user
+    build:
+      context: .
+      dockerfile: src/user/Dockerfile
+    container_name: user-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/user:/app
+      - ./src/trainer:/trainer
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/dataset:/dataset
+    environment:
+      - DATASET_PATH=/dataset
+    restart: always
+    networks:
+      - aibomgen_network
+networks:
+  aibomgen_network:
+    driver: bridge

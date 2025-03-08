@@ -1,5 +1,0 @@
-tensorflow
-numpy
-mlflow
-torch       # For PyTorch models
-scikit-learn  # For MLflow autologging with sklearn
