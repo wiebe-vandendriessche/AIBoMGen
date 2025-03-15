@@ -2,9 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /trainer
 
-COPY src/trainer/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /trainer/
 
-COPY src/trainer/ .
+# Install dependencies directly (since trainer files are mounted)
+RUN pip install --no-cache-dir -r /trainer/requirements.txt
 
-CMD ["python", "train.py"]
+COPY . /trainer/
+
+CMD ["python", "/trainer/train.py"]

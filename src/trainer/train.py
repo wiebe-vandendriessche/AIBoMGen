@@ -1,86 +1,81 @@
 import os
-from datasets import Dataset
-from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 import logging
+from datasets import load_dataset
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, TrainingArguments, Trainer
+import sys
 
-# Set up logging configuration
-logging.basicConfig(level=logging.INFO)
+# Logging setup
+logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger()
 
-# Define the dataset path inside the container
-dataset_path = os.getenv("DATASET_PATH", "/dataset")
-logger.info(f"Dataset path: {dataset_path}")
+# Environment variables
+model_name = os.getenv("MODEL_NAME", "bert-base-uncased")
+d_p = os.getenv("DATASET_PATH", "/mnt/dataset/imdb")
 
-# Check if dataset_path is a directory or a single file
-try:
-    if os.path.isdir(dataset_path):
-        # If it's a directory, load the entire dataset (e.g., using Dataset.from_parquet or other methods)
-        dataset_files = [os.path.join(dataset_path, f) for f in os.listdir(dataset_path) if f.endswith(".parquet")]
-        if not dataset_files:
-            raise ValueError("No parquet files found in the specified directory.")
-        dataset = Dataset.from_parquet(dataset_files)  # Example of loading multiple files
-        logger.info(f"Loaded dataset with {len(dataset)} examples.")
+# Check dataset existence
+if not os.path.exists(d_p):
+    logger.error(f"Dataset path does not exist: {d_p}")
+    raise ValueError("Dataset path does not exist.")
+
+def load_arrow_dataset(dataset_path):
+    """Loads an Arrow dataset based on the provided files."""
+    # Check for expected files in the directory
+    train_file = None
+    test_file = None
+
+    # Log the files in the dataset directory
+    logger.info(f"Checking dataset directory: {dataset_path}")
+    logger.info(f"Files in directory: {os.listdir(dataset_path)}")
+
+    # Look for specific Arrow dataset files
+    for file in os.listdir(dataset_path):
+        if "train" in file and file.endswith(".arrow"):
+            train_file = os.path.join(dataset_path, file)
+        elif "test" in file and file.endswith(".arrow"):
+            test_file = os.path.join(dataset_path, file)
+
+    if train_file and test_file:
+        # Load the dataset with the train and test splits
+        return load_dataset("arrow", data_files={"train": train_file, "test": test_file})
+    elif train_file:
+        # If only the train file exists, load it
+        return load_dataset("arrow", data_files={"train": train_file})
     else:
-        # If it's a single file, load it directly
-        dataset = Dataset.from_parquet(dataset_path)
-        logger.info(f"Loaded dataset from file: {dataset_path}.")
+        raise ValueError("No valid Arrow dataset files found.")
 
-except Exception as e:
-    logger.error(f"Error loading dataset: {e}")
-    raise
+# Load dataset
+dataset = load_arrow_dataset(d_p)
+logger.info(f"Loaded dataset with {len(dataset['train'])} training samples.")
 
-# Load the model
-try:
-    model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
-    logger.info(f"Model loaded successfully: bert-base-uncased")
-except Exception as e:
-    logger.error(f"Error loading model: {e}")
-    raise
+# Model & Tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+logger.info(f"Loaded model: {model_name}")
 
-# Define training arguments with explicit logging
-output_model_path = os.getenv("MODEL_SAVE_PATH", "/output/trained_model")  # Define the save path inside the mounted volume
-logger.info(f"Saving model to: {output_model_path}")
-
-# Ensure the save directory exists
-os.makedirs(output_model_path, exist_ok=True)
-logger.info(f"Ensured model save path exists at {output_model_path}.")
-
+# Training arguments
+output_dir = "/mnt/trained_model"  # Output directory inside container
 training_args = TrainingArguments(
-    output_dir='./results',  # Temporary local directory inside the container
-    num_train_epochs=int(os.getenv("epochs", 3)),
+    output_dir=output_dir,
+    num_train_epochs=int(os.getenv("EPOCHS", 3)),
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
     evaluation_strategy="epoch",
-    learning_rate=float(os.getenv("learning_rate", 0.001)),
-    logging_dir='./logs',  # Directory for logs
-    logging_steps=10,  # Log every 10 steps
-    logging_first_step=True,  # Log the first step
-    report_to="tensorboard",  # Enable reporting to TensorBoard (optional)
+    learning_rate=float(os.getenv("LEARNING_RATE", 0.0001)),
+    logging_dir="/logs",  # Logs directory inside container
+    logging_steps=10
 )
 
-# Define Trainer
+# Trainer setup
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=dataset
+    train_dataset=dataset["train"],
+    eval_dataset=dataset.get("test", None)
 )
 
-# Train the model
-try:
-    logger.info("Starting training...")
-    trainer.train()
-    logger.info("Training complete.")
+# Start training
+trainer.train()
 
-    # Check if the model is saved to the mounted folder
-    logger.info("Saving model to the mounted folder...")
-    trainer.save_model(output_model_path)  # Save to the mounted folder
-
-    # Verify if the model is saved
-    if os.path.exists(output_model_path):
-        logger.info(f"Model saved successfully at {output_model_path}.")
-    else:
-        logger.error(f"Model saving failed. No model found at {output_model_path}.")
-
-except Exception as e:
-    logger.error(f"Error during training: {e}")
-    raise
+# Save model
+trainer.save_model(output_dir)
+logger.info(f"Model saved at {output_dir}")

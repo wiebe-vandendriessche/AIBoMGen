@@ -15,9 +15,10 @@ NETWORK_NAME = "aibomgen_network"  # Correct network name
 
 # Pydantic model to define the API request body
 class TrainingRequest(BaseModel):
-    dataset_path: str  # Path to the dataset (can be a directory or specific file)
+    dataset_path: str  # Path to the dataset (directory containing training data)
     model_name: str  # Model name (e.g., "bert-base-uncased")
     parameters: dict  # Dictionary to hold hyperparameters (e.g., {'learning_rate': 0.01, 'epochs': 3})
+
 
 def image_exists(image_name):
     """Check if a Docker image exists"""
@@ -27,46 +28,49 @@ def image_exists(image_name):
     except docker.errors.APIError as e:
         return False
 
+
 @router.post("/start-training")
 async def start_training(request: TrainingRequest):
     """Starts a new training container with the provided request data."""
     try:
-        # Ensure the image exists, or build it
+        # # Check if the trainer image exists
         # if not image_exists(TRAINER_IMAGE):
-        #    print(f"Building image {TRAINER_IMAGE}...")
-        #    docker_client.images.build(path=TRAINER_DOCKERFILE_PATH, tag=TRAINER_IMAGE)
+        #     # Build the image if it doesn't exist
+        #     docker_client.images.build(path=TRAINER_DOCKERFILE_PATH, tag=TRAINER_IMAGE)
 
-        # always build it
         docker_client.images.build(path=TRAINER_DOCKERFILE_PATH, tag=TRAINER_IMAGE)
 
-        # Create or get the network
-        network_name = NETWORK_NAME
+        # Generate a unique container name
+        container_name = f"trainer_{container_id()}"
 
-        # Map dataset directories from the request
+        # Define volumes for dataset mounting and model saving
         volumes = {
-            request.dataset_path: {'bind': '/dataset', 'mode': 'ro'},  # Mount the dataset path to /dataset inside the container
-            '/output/trained_model': {'bind': '/mnt/trained_model', 'mode': 'rw'}  # Mount model save path
+            '/dataset/imdb': {'bind': '/mnt/dataset/imdb', 'mode': 'ro'},  # Mount dataset to a different path
+            '/output/trained_model': {'bind': '/mnt/trained_model', 'mode': 'rw'},  # Mount output directory
         }
 
-        # Start the trainer container and attach to the network, mount the dataset
+        # Start the training container
         container = docker_client.containers.run(
             TRAINER_IMAGE,
             detach=True,
-            remove=False,  # Remove container after it stops
-            name=f"trainer_{container_id()}",
-            network=network_name,  # Attach the container to the network
-            volumes=volumes,  # Mount the dataset volumes to the container
+            remove=False,  # Do not remove immediately, allow logs to be inspected
+            name=container_name,
+            network=NETWORK_NAME,  # Attach container to the network
+            volumes=volumes,  # Mount dataset and output directories
             environment={
-                "MODEL_NAME": request.model_name,  # Set the model name as an environment variable
-                "DATASET_PATH": "/dataset",  # Path to the dataset inside the container
-                **request.parameters  # Pass hyperparameters as environment variables
+                "MODEL_NAME": request.model_name,  # Hugging Face model name
+                "DATASET_PATH": '/mnt/dataset/imdb',  # Path to dataset inside container
+                **request.parameters  # Hyperparameters as environment variables
             }
         )
 
         return {"message": "Training container started!", "container_id": container.id}
+    except APIError as e:
+        raise HTTPException(status_code=500, detail=f"Docker API Error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Unexpected Error: {str(e)}")
 
 def container_id():
     """Generates a short unique ID for the container"""
     return str(uuid.uuid4())[:8]
+

@@ -3,6 +3,9 @@ FROM python:3.12-slim
 # Set the working directory
 WORKDIR /app
 
+# Install Docker CLI
+RUN apt update && apt install -y docker.io
+
 # Copy requirements and install dependencies
 COPY src/user/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
