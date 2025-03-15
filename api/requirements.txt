@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+celery
+pydantic
+requests
+redis
+python-multipart
+datasets

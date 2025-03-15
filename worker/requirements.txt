@@ -1,0 +1,6 @@
+celery
+transformers[torch]
+torch
+redis
+datasets
+accelerate>=0.26.0
