@@ -4,6 +4,9 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=EfeNgErMAnDIon  # Set a password for Redis
+    command: [ "redis-server", "--requirepass", "EfeNgErMAnDIon" ]  # Secure Redis with password
 
   api:
     build:
@@ -14,16 +17,31 @@ services:
     depends_on:
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
+      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
 
   worker:
     build:
       context: ./worker
     container_name: celery_worker
+    command: celery -A tasks worker --loglevel=info
     mem_limit: 4g
     depends_on:
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
+      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
+
+  flower:
+    build:
+      context: ./worker
+    container_name: flower
+    command: celery -A tasks flower --basic_auth=admin:password123
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - worker
+    environment:
+      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
+      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0

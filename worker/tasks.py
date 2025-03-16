@@ -12,8 +12,8 @@ def run_training(job_params, expected_hash):
     try:
         dataset = load_dataset(dataset_name)
 
-        reduced_train = dataset["train"].select(range(612))  # First 500 samples for training
-        reduced_test = dataset["test"].select(range(64))    # First 50 samples for testing
+        reduced_train = dataset["train"].select(range(256))
+        reduced_test = dataset["test"].select(range(32))
 
         dataset_hash = compute_dataset_hash(dataset)
         if dataset_hash != expected_hash:
