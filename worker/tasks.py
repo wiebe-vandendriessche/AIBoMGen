@@ -1,5 +1,3 @@
-from _typeshed import SupportsWrite
-
 from celery_config import celery_app
 from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification, AutoTokenizer
 from datasets import load_dataset
@@ -112,7 +110,7 @@ def run_training(job_params, expected_hash):
 
         # Save AIBoM as a JSON file
         aibom_file = f"/app/results/{job_uuid}/aibom.json"
-        with open(aibom_file, "w", encoding="utf-8") as f: # type: SupportsWrite[str]
+        with open(aibom_file, "w", encoding="utf-8") as f:
             json.dump(aibom, f, indent=4)
 
         return {
