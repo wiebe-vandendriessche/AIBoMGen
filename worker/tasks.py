@@ -1,11 +1,22 @@
+from _typeshed import SupportsWrite
+
 from celery_config import celery_app
 from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification, AutoTokenizer
 from datasets import load_dataset
 import hashlib
+from datetime import datetime
+import json
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes as crypt_hashes
+from cryptography.hazmat.backends import default_backend
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
 def run_training(job_params, expected_hash):
-    """Training task - verifies dataset integrity before training"""
+    """Training task"""
+
+    job_uuid = run_training.request.id
 
     model_name = job_params["model_name"]
     dataset_name = job_params["dataset_name"]
@@ -44,7 +55,7 @@ def run_training(job_params, expected_hash):
         tokenized_test = reduced_test.map(tokenize_function, batched=True)
 
         training_args = TrainingArguments(
-            output_dir="/app/results",
+            output_dir=f"/app/results/{job_uuid}",
             num_train_epochs=num_train_epochs,
             per_device_train_batch_size=per_device_train_batch_size,
             per_device_eval_batch_size=per_device_eval_batch_size,
@@ -56,7 +67,7 @@ def run_training(job_params, expected_hash):
             weight_decay=weight_decay,
             max_grad_norm=max_grad_norm,
             eval_strategy=eval_strategy,
-            logging_dir="/app/logs",
+            logging_dir=f"/app/logs/{job_uuid}",
             save_strategy="steps",
             logging_strategy=logging_strategy,
             log_level="info"
@@ -78,14 +89,37 @@ def run_training(job_params, expected_hash):
             eval_dataset=tokenized_test
         )
 
+        training_time = datetime.now().isoformat()
+
         trainer.train()
 
-        trainer.save_model("/app/results")
+        trainer.save_model(f"/app/results/{job_uuid}")
+
+        # Create the AIBoM
+        aibom = generate_aibom(
+            model_name=model_name,
+            dataset_name=dataset_name,
+            dataset_hash=dataset_hash,
+            training_params=job_params,
+            model_used=model_name,
+            training_time=training_time
+        )
+
+        signature = sign_aibom(aibom)
+
+        # Add the signature to the AIBoM
+        aibom["signature"] = signature.hex()
+
+        # Save AIBoM as a JSON file
+        aibom_file = f"/app/results/{job_uuid}/aibom.json"
+        with open(aibom_file, "w", encoding="utf-8") as f: # type: SupportsWrite[str]
+            json.dump(aibom, f, indent=4)
 
         return {
             "status": "Training completed",
             "dataset_hash": dataset_hash,
-            "model_used": model_name
+            "model_used": model_name,
+            "aibom": aibom_file
         }
 
     except Exception as e:
@@ -97,3 +131,58 @@ def compute_dataset_hash(dataset):
     for example in dataset:
         sha256.update(str(example).encode("utf-8"))
     return sha256.hexdigest()
+
+def generate_aibom(model_name, dataset_name, dataset_hash, training_params, model_used, training_time):
+    """Generate the AI Bill of Materials (AIBoM)"""
+    aibom = {
+        "model_name": model_name,
+        "dataset_name": dataset_name,
+        "dataset_hash": dataset_hash,
+        "training_parameters": training_params,
+        "model_used": model_used,
+        "training_time": training_time,
+        "generated_at": datetime.now().isoformat(),
+    }
+    return aibom
+
+def load_private_key():
+    """Load a private key for signing the AIBoM"""
+    # private_key_path = "/path/to/private_key.pem"
+    #
+    # with open(private_key_path, "rb") as key_file:
+    #     private_key = serialization.load_pem_private_key(
+    #         key_file.read(),
+    #         password=None,
+    #         backend=default_backend()
+    #     )
+
+    # for now just generate it each time
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+
+    return private_key
+
+def sign_aibom(aibom):
+    """Sign the AIBoM using a private key"""
+    # Serialize AIBoM (ensure it's in a stable format)
+    aibom_json = json.dumps(aibom, sort_keys=True)
+
+    # Hash the serialized AIBoM
+    aibom_hash = hashlib.sha256(aibom_json.encode("utf-8")).digest()
+
+    # Load the private key and sign the hash
+    private_key = load_private_key()
+
+    signature = private_key.sign(
+        aibom_hash,
+        padding.PSS(
+            mgf=padding.MGF1(crypt_hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH
+        ),
+        algorithm=hashes.SHA256()
+    )
+
+    return signature
