@@ -6,12 +6,27 @@ import hashlib
 @celery_app.task(name="tasks.run_training", time_limit=3600)
 def run_training(job_params, expected_hash):
     """Training task - verifies dataset integrity before training"""
+
     model_name = job_params["model_name"]
-    dataset_name = job_params["dataset_name"]  # Using the dataset name passed from FastAPI
+    dataset_name = job_params["dataset_name"]
+    num_train_epochs = job_params["num_train_epochs"]
+    per_device_train_batch_size = job_params["per_device_train_batch_size"]
+    per_device_eval_batch_size = job_params["per_device_eval_batch_size"]
+    learning_rate = job_params["learning_rate"]
+    logging_steps = job_params["logging_steps"]
+    save_steps = job_params["save_steps"]
+    eval_steps = job_params["eval_steps"]
+    warmup_steps = job_params["warmup_steps"]
+    weight_decay = job_params["weight_decay"]
+    max_grad_norm = job_params["max_grad_norm"]
+    eval_strategy = job_params["evaluation_strategy"]
+    logging_strategy = job_params["logging_strategy"]
 
     try:
         dataset = load_dataset(dataset_name)
 
+
+        # reduced for testing purposes
         reduced_train = dataset["train"].select(range(256))
         reduced_test = dataset["test"].select(range(32))
 
@@ -29,13 +44,32 @@ def run_training(job_params, expected_hash):
         tokenized_test = reduced_test.map(tokenize_function, batched=True)
 
         training_args = TrainingArguments(
-            output_dir="./results",
-            num_train_epochs=1,
-            per_device_train_batch_size=4,
-            per_device_eval_batch_size=4,
-            save_strategy="no",  # Disable saving every epoch
-            logging_dir="./logs"
+            output_dir="/app/results",
+            num_train_epochs=num_train_epochs,
+            per_device_train_batch_size=per_device_train_batch_size,
+            per_device_eval_batch_size=per_device_eval_batch_size,
+            learning_rate=learning_rate,
+            logging_steps=logging_steps,
+            save_steps=save_steps,
+            eval_steps=eval_steps,
+            warmup_steps=warmup_steps,
+            weight_decay=weight_decay,
+            max_grad_norm=max_grad_norm,
+            eval_strategy=eval_strategy,
+            logging_dir="/app/logs",
+            save_strategy="steps",
+            logging_strategy=logging_strategy,
+            log_level="info"
         )
+
+        # training_args = TrainingArguments(
+        #     output_dir="./results",
+        #     num_train_epochs=1,
+        #     per_device_train_batch_size=4,
+        #     per_device_eval_batch_size=4,
+        #     logging_dir="./logs",
+        #     save_strategy="no",  # Disable saving every epoch
+        # )
 
         trainer = Trainer(
             model=model,
@@ -45,6 +79,8 @@ def run_training(job_params, expected_hash):
         )
 
         trainer.train()
+
+        trainer.save_model("/app/results")
 
         return {
             "status": "Training completed",

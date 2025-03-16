@@ -40,7 +40,14 @@ This project provides an API for training AI models using Hugging Face datasets 
   - Request body:
   ```json
     {
-    "model_name": "distilbert-base-uncased",
-    "dataset_name": "imdb"
+      "model_name": "distilbert-base-uncased",
+      "dataset_name": "imdb",
+      "num_train_epochs": 1,
+      "learning_rate": 5e-5,
+      "save_steps": 16,
+      "eval_steps": 16,
+      "logging_steps": 16
     }
+    ```
+
 - Monitor job status and retrieve results

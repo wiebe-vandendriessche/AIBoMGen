@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from celery.result import AsyncResult
 from celery import Celery
 from datasets import load_dataset
+from typing import Optional
 
 
 # Create a Celery instance in the FastAPI app to send tasks
@@ -19,6 +20,20 @@ class JobParams(BaseModel):
     model_name: str
     dataset_name: str  # Name of the Hugging Face dataset
 
+    # Optional training parameters
+    num_train_epochs: Optional[int] = 1             # Just 1 epoch for fast testing
+    per_device_train_batch_size: Optional[int] = 4  # Small batch size for fast testing
+    per_device_eval_batch_size: Optional[int] = 4   # Small batch size for fast testing
+    learning_rate: Optional[float] = 5e-5           # Default learning rate
+    logging_steps: Optional[int] = 32              # Log more frequently for faster monitoring
+    save_steps: Optional[int] = 500                 # Save frequently during testing
+    eval_steps: Optional[int] = 500                 # Evaluation steps for fast monitoring
+    warmup_steps: Optional[int] = 0                 # Very few warmup steps for faster start
+    weight_decay: Optional[float] = 0.0             # Default weight decay
+    max_grad_norm: Optional[float] = 1.0            # Keep this default for gradient clipping
+    evaluation_strategy: Optional[str] = "epoch"    # Evaluate frequently during training
+    logging_strategy: Optional[str] = "steps"
+
 @app.post("/submit_job")
 async def submit_job(job_params: JobParams):
     """Submit training job with Hugging Face dataset."""
@@ -27,7 +42,10 @@ async def submit_job(job_params: JobParams):
 
         dataset_hash = compute_dataset_hash(dataset)
 
-        task = celery_app.send_task('tasks.run_training', args=[job_params.dict(), dataset_hash])
+        task = celery_app.send_task(
+            'tasks.run_training',
+            args=[job_params.model_dump(), dataset_hash]
+        )
         return {"job_id": task.id, "status": "Training started", "dataset_hash": dataset_hash}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")

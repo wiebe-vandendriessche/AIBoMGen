@@ -31,6 +31,9 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
       - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
+    volumes:
+      - ./host_output_dir:/app/results  # Mount host directory to container's results dir
+      - ./host_logging_dir:/app/logs    # Mount host directory to container's logs dir
 
   flower:
     build:
