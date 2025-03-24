@@ -1,9 +1,13 @@
 from celery import Celery
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 celery_app = Celery(
     "aibomgen_worker",
-    broker="redis://redis:6379/0",  # Redis broker
-    backend="redis://redis:6379/0",  # Redis backend to track task results
+    broker=os.getenv("CELERY_BROKER_URL"),
+    backend=os.getenv("CELERY_RESULT_BACKEND"),
 )
 
 celery_app.conf.update(

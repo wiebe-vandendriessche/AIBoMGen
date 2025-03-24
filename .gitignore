@@ -2,7 +2,8 @@
 .iml
 
 # own
-video_dataset
+host_logging_dir
+host_output_dir
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

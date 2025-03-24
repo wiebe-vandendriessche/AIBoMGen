@@ -5,4 +5,4 @@ pydantic
 requests
 redis
 python-multipart
-datasets
+python-dotenv

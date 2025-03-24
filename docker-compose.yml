@@ -4,9 +4,9 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=EfeNgErMAnDIon  # Set a password for Redis
-    command: [ "redis-server", "--requirepass", "EfeNgErMAnDIon" ]  # Secure Redis with password
+    env_file:
+      - .env
+    command: [ "redis-server", "--requirepass", "$REDIS_PASSWORD" ]
 
   api:
     build:
@@ -16,9 +16,10 @@ services:
       - "8000:8000"
     depends_on:
       - redis
-    environment:
-      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
-      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - shared_storage:/app/uploads  # Shared volume for file exchange
 
   worker:
     build:
@@ -28,23 +29,26 @@ services:
     mem_limit: 4g
     depends_on:
       - redis
-    environment:
-      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
-      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
+    env_file:
+      - .env
     volumes:
-      - ./host_output_dir:/app/results  # Mount host directory to container's results dir
-      - ./host_logging_dir:/app/logs    # Mount host directory to container's logs dir
+      - shared_storage:/app/uploads  # Shared volume for file exchange
+      - ./host_output_dir:/app/results
+      - ./host_logging_dir:/app/logs
 
   flower:
     build:
       context: ./worker
     container_name: flower
-    command: celery -A tasks flower --basic_auth=admin:password123
+    command: celery -A celery_config flower --basic_auth=$FLOWER_BASIC_AUTH
     ports:
       - "5555:5555"
     depends_on:
       - redis
       - worker
-    environment:
-      - CELERY_BROKER_URL=redis://:EfeNgErMAnDIon@redis:6379/0  # Update Redis URL with password
-      - CELERY_RESULT_BACKEND=redis://:EfeNgErMAnDIon@redis:6379/0
+    env_file:
+      - .env
+
+volumes:
+  shared_storage:
+    driver: local
