@@ -3,6 +3,7 @@ from celery.result import AsyncResult
 from celery import Celery
 from dotenv import load_dotenv
 import os
+import shutil
 
 load_dotenv()
 
@@ -19,20 +20,34 @@ app = FastAPI()
 UPLOAD_DIR = "/app/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.post("/submit_job_by_model_file")
-async def submit_job(file: UploadFile = File(...)):
+@app.post("/submit_job_by_model_and_data")
+async def submit_job(model: UploadFile = File(...), dataset: UploadFile = File(...)):
     try:
-        # Save the uploaded file in the shared volume
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
+        # Save model file
+        model_path = os.path.join(UPLOAD_DIR, model.filename)
+        with open(model_path, "wb") as buffer:
+            shutil.copyfileobj(model.file, buffer)
+        os.sync()  # Ensures file is written to disk
 
-        # Send Celery task with the file path
+        # Save dataset file
+        dataset_path = os.path.join(UPLOAD_DIR, dataset.filename)
+        with open(dataset_path, "wb") as buffer:
+            shutil.copyfileobj(dataset.file, buffer)
+        os.sync()  # Ensures file is written to disk
+
+        # Verify file exists before proceeding
+        if not os.path.exists(model_path):
+            raise HTTPException(status_code=500, detail=f"Model file {model.filename} was not properly saved.")
+        if not os.path.exists(dataset_path):
+            raise HTTPException(status_code=500, detail=f"Dataset file {dataset.filename} was not properly saved.")
+
+        # Send Celery task after ensuring files exist
         task = celery_app.send_task(
             'tasks.run_training',
-            args=[file.filename]  # Send filename instead of just triggering the task
+            args=[model.filename, dataset.filename]  # Send filenames to worker
         )
-        return {"job_id": task.id, "status": "Training started", "file_path": file_path}
+        return {"job_id": task.id, "status": "Training started", "model_path": model_path, "dataset_path": dataset_path}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
 
