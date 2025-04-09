@@ -1,0 +1,29 @@
+input_shape:
+output_shape:
+features:
+  feature1: [float, []]
+  feature2: [float, []]
+  feature3: [float, []]
+  feature4: [float, []]
+  feature5: [float, []]
+  feature6: [float, []]
+  feature7: [float, []]
+  feature8: [float, []]
+  feature9: [float, []]
+  feature10: [float, []]
+  feature11: [float, []]
+  feature12: [float, []]
+  feature13: [float, []]
+  feature14: [float, []]
+  feature15: [float, []]
+  feature16: [float, []]
+  feature17: [float, []]
+  feature18: [float, []]
+  feature19: [float, []]
+  feature20: [float, []]
+label: label
+preprocessing:
+  normalize: true
+  scale: 0.1
+  clip: [0.0, 1.0]
+flatten_features: true

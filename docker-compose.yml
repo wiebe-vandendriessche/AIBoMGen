@@ -6,7 +6,7 @@ services:
       - "6379:6379"
     env_file:
       - .env
-    command: [ "redis-server", "--requirepass", "$REDIS_PASSWORD" ]
+    command: ["redis-server", "--requirepass", "$REDIS_PASSWORD"]
 
   api:
     build:
@@ -52,3 +52,5 @@ services:
 volumes:
   shared_storage:
     driver: local
+    driver_opts:
+      o: "bind,uid=1000,gid=1000"  # Set ownership of the volume to match the aibomgen user

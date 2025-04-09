@@ -4,6 +4,7 @@ from celery import Celery
 from dotenv import load_dotenv
 import os
 import shutil
+import uuid
 
 load_dotenv()
 
@@ -20,33 +21,49 @@ app = FastAPI()
 UPLOAD_DIR = "/app/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
 @app.post("/submit_job_by_model_and_data")
-async def submit_job(model: UploadFile = File(...), dataset: UploadFile = File(...)):
+async def submit_job(
+    model: UploadFile = File(...), 
+    dataset: UploadFile = File(...),
+    dataset_definition: UploadFile = File(...)
+):
     try:
+        # Create a unique directory for this upload
+        unique_dir = os.path.join(UPLOAD_DIR, str(uuid.uuid4()))
+        os.makedirs(unique_dir, exist_ok=True)
+
         # Save model file
-        model_path = os.path.join(UPLOAD_DIR, model.filename)
+        model_path = os.path.join(unique_dir, model.filename)
         with open(model_path, "wb") as buffer:
             shutil.copyfileobj(model.file, buffer)
         os.sync()  # Ensures file is written to disk
 
         # Save dataset file
-        dataset_path = os.path.join(UPLOAD_DIR, dataset.filename)
+        dataset_path = os.path.join(unique_dir, dataset.filename)
         with open(dataset_path, "wb") as buffer:
             shutil.copyfileobj(dataset.file, buffer)
         os.sync()  # Ensures file is written to disk
+        
+        # Save dataset definition file
+        dataset_definition_path = os.path.join(unique_dir, dataset_definition.filename)
+        with open(dataset_definition_path, "wb") as buffer:
+            shutil.copyfileobj(dataset_definition.file, buffer)
 
-        # Verify file exists before proceeding
+        # Verify files exist before proceeding
         if not os.path.exists(model_path):
             raise HTTPException(status_code=500, detail=f"Model file {model.filename} was not properly saved.")
         if not os.path.exists(dataset_path):
             raise HTTPException(status_code=500, detail=f"Dataset file {dataset.filename} was not properly saved.")
+        if not os.path.exists(dataset_definition_path):
+            raise HTTPException(status_code=500, detail=f"Dataset definition file {dataset_definition.filename} was not properly saved.")
 
-        # Send Celery task after ensuring files exist
+        # Send Celery task with the unique directory
         task = celery_app.send_task(
             'tasks.run_training',
-            args=[model.filename, dataset.filename]  # Send filenames to worker
+            args=[model.filename, dataset.filename, dataset_definition.filename, unique_dir]
         )
-        return {"job_id": task.id, "status": "Training started", "model_path": model_path, "dataset_path": dataset_path}
+        return {"job_id": task.id, "unique_dir": unique_dir, "status": "Training started", "model_path": model_path, "dataset_path": dataset_path}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")

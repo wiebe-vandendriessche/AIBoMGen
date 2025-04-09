@@ -1,17 +1,25 @@
 FROM python:3.9
 
-RUN mkdir -p /app /app/logs /app/results /app/uploads
 
+RUN mkdir -p /app /app/logs /app/results /app/uploads
 
 WORKDIR /app
 
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Add non-root user to the worker container
-RUN useradd -m aibomgen && chown -R aibomgen:aibomgen /app
-RUN chmod -R 777 /app/logs /app/results /app/uploads
+# Add a non-root user with a specific UID and GID for better security
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g $GID aibomgen && \
+    useradd -m -u $UID -g $GID aibomgen && \
+    chown -R aibomgen:aibomgen /app/uploads
 
+# Ensure the worker has full permissions to the necessary directories
+RUN chmod -R 770 /app/logs /app/results /app/uploads
+
+# Switch to the non-root user
 USER aibomgen
 
 COPY . .

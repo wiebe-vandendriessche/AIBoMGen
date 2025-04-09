@@ -3,3 +3,5 @@ redis
 flower
 python-dotenv
 tensorflow
+PyYAML
+pandas

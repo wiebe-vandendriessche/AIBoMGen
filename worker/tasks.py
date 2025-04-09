@@ -1,48 +1,62 @@
 from celery_config import celery_app
 import os
+import shutil
 import tensorflow as tf
 import time
+import stat
+import yaml
+import pandas as pd
 
 UPLOAD_DIR = "/app/uploads"  # Shared volume location
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
-def run_training(model_filename, dataset_filename):
+def run_training(model_filename, dataset_filename, dataset_definition_filename, unique_dir):
     """Training task"""
     try:
-        model_path = os.path.join(UPLOAD_DIR, model_filename)
-        dataset_path = os.path.join(UPLOAD_DIR, dataset_filename)
+        model_path = os.path.join(unique_dir, model_filename)
+        dataset_path = os.path.join(unique_dir, dataset_filename)
+        dataset_definition_path = os.path.join(unique_dir, dataset_definition_filename)
 
-        time.sleep(2)
-
-        print(model_filename)
-        print(dataset_filename)
-        print(f"Model path: {model_path}")
-        print(f"Dataset path: {dataset_path}")
-        print(f"Model file permissions: {oct(os.stat(model_path).st_mode)}")
-        print(f"Dataset file permissions: {oct(os.stat(dataset_path).st_mode)}")
-
-        # Ensure files exists
+        # Ensure files exist
         if not os.path.exists(model_path):
             return {"error": "Model file not found", "model": model_path}
         if not os.path.exists(dataset_path):
             return {"error": "Dataset file not found", "dataset": dataset_path}
+        if not os.path.exists(dataset_definition_path):
+            return {"error": "Dataset definition file not found", "dataset_definition": dataset_definition_path}
 
-        # Load model in save mode (DON'T ALLOW FOR LAMBDA LAYERS)
-        try:
-            model = tf.keras.models.load_model(model_path, safe_mode=True)
-        except Exception as e:
-            return {"error": f"Model loading failed: {str(e)}"}
+        # Load dataset definition
+        with open(dataset_definition_path, "r") as f:
+            dataset_definition = yaml.safe_load(f)
 
-        model.summary()
+        # Load dataset
+        dataset = load_csv_dataset_with_definition(dataset_path, dataset_definition)
 
-        # Load TFRecord dataset
-        dataset = _load_tfrecord(dataset_path)
+        # Load model
+        model = tf.keras.models.load_model(model_path)
 
+        # Validate compatibility
+        validate_model_and_dataset_definition(model, dataset_definition)
 
-            # Determine fit parameters based on dataset type
-        batch_size = 32  # Example, this could also be dynamic
-        epochs = 10  # Example, this can also be set from an API parameter
-        steps_per_epoch = None  # This could be calculated based on the dataset
+        # Train the model
+        model.fit(x=dataset, epochs=10, batch_size=32, verbose=1)
+
+        return {"status": "Training completed", "model": model_filename, "dataset": dataset_filename}
+    except Exception as e:
+        return {"error": f"An error occurred during training: {str(e)}"}
+    finally:
+        # Cleanup: Delete only the unique directory
+        if os.path.exists(unique_dir):
+            try:
+                # Release TensorFlow resources
+                tf.keras.backend.clear_session()
+
+                # Remove the directory
+                shutil.rmtree(unique_dir)
+                print(f"Directory {unique_dir} removed.")
+            except Exception as e:
+                print(f"Error removing directory {unique_dir}: {str(e)}")
+                
 
         # model.fit(
         #     x=None, # data (could be: numpy array, tensor, dict mapping, tf.data.Dataset, keras.utils.PyDataset)
@@ -63,34 +77,54 @@ def run_training(model_filename, dataset_filename):
         #     validation_freq=1 # Specifies how many training epochs to run before a new validation run is performed
         # )
 
-        model.fit(
-            x=dataset,  # Automatically use the preprocessed dataset
-            epochs=epochs,
-            batch_size=batch_size,
-            steps_per_epoch=steps_per_epoch,
-            verbose=1
-        )
 
-        return {"status": "Training completed", "model": model_filename, "dataset": dataset_filename}
-    except Exception as e:
-        return {"error": f"An error occurred during training: {str(e)}"}
-    finally:
-        # Cleanup: Delete the files after processing (always occurs, even if there is an error)
-        if os.path.exists(model_path):
-            try:
-                os.remove(model_path)
-                print(f"Model file {model_filename} removed.")
-            except Exception as e:
-                print(f"Error removing model file {model_filename}: {str(e)}")
 
-        if os.path.exists(dataset_path):
-            try:
-                os.remove(dataset_path)
-                print(f"Dataset file {dataset_filename} removed.")
-            except Exception as e:
-                print(f"Error removing dataset file {dataset_filename}: {str(e)}")
 
-def _load_tfrecord(file_path, batch_size=32):
+def load_csv_dataset_with_definition(file_path, dataset_definition, batch_size=32):
+    """
+    Load and preprocess a CSV dataset based on the dataset definition.
+    """
+    # Load the CSV file into a Pandas DataFrame
+    df = pd.read_csv(file_path)
+
+    # Validate that all required columns are present
+    required_columns = list(dataset_definition["columns"].keys())
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError(f"CSV file is missing required columns: {set(required_columns) - set(df.columns)}")
+
+    # Extract features and labels
+    feature_columns = [col for col in dataset_definition["columns"].keys() if col != dataset_definition["label"]]
+    label_column = dataset_definition["label"]
+
+    features = df[feature_columns].astype("float32").values
+    labels = df[label_column].astype("int64").values
+
+    # Apply preprocessing if specified
+    if "preprocessing" in dataset_definition:
+        features = apply_preprocessing(features, dataset_definition["preprocessing"])
+
+    # Convert to TensorFlow Dataset
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    return dataset.batch(batch_size).shuffle(buffer_size=1000)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+
+def load_tfrecord_demo(file_path, batch_size=32):
     """Helper function to load a TFRecord file and return a tf.data.Dataset."""
     raw_dataset = tf.data.TFRecordDataset(file_path)
 
@@ -112,3 +146,73 @@ def _load_tfrecord(file_path, batch_size=32):
     dataset = dataset.batch(batch_size).shuffle(buffer_size=1000)
 
     return dataset
+
+def load_TFRecordDataset_with_definition(file_path, dataset_definition, batch_size=32):
+    """
+    Load and preprocess the dataset based on the dataset definition.
+    Dynamically handles feature shapes and preprocessing steps.
+    """
+    raw_dataset = tf.data.TFRecordDataset(file_path)
+
+    # Build feature description from dataset definition
+    feature_description = {
+        feature: tf.io.FixedLenFeature(
+            shape if isinstance(shape, list) else [],  # Handle scalar or vector features
+            tf.float32 if dtype == "float" else tf.int64
+        )
+        for feature, (dtype, shape) in dataset_definition["features"].items()
+    }
+    feature_description[dataset_definition["label"]] = tf.io.FixedLenFeature([], tf.int64)
+
+    def _parse_function(proto):
+        # Parse the input tf.Example proto using the feature description
+        parsed_features = tf.io.parse_single_example(proto, feature_description)
+
+        # Extract features as a flat tensor or dictionary based on the definition
+        if dataset_definition.get("flatten_features", True):
+            features = tf.concat(
+                [tf.reshape(parsed_features[k], [-1]) for k in dataset_definition["features"].keys()],
+                axis=-1
+            )
+        else:
+            features = {k: parsed_features[k] for k in dataset_definition["features"].keys()}
+
+        label = parsed_features[dataset_definition["label"]]
+
+        # Apply optional preprocessing if specified
+        if "preprocessing" in dataset_definition:
+            features = apply_preprocessing(features, dataset_definition["preprocessing"])
+
+        return features, label
+
+    dataset = raw_dataset.map(_parse_function)
+    return dataset.batch(batch_size).shuffle(buffer_size=1000)
+
+def validate_model_and_dataset_definition(model, dataset_definition):
+    """Validate that the model's input/output shapes match the dataset definition."""
+    input_shape = model.input_shape[1:]  # Exclude batch dimension
+    output_shape = model.output_shape[1:]  # Exclude batch dimension
+
+    if input_shape != tuple(dataset_definition["input_shape"]):
+        raise ValueError(f"Model input shape {input_shape} does not match dataset input shape {dataset_definition['input_shape']}")
+
+    if output_shape != tuple(dataset_definition["output_shape"]):
+        raise ValueError(f"Model output shape {output_shape} does not match dataset output shape {dataset_definition['output_shape']}")
+    
+def apply_preprocessing(features, preprocessing_steps):
+    """
+    Apply preprocessing steps to the features.
+    Supports normalization, scaling, and other transformations.
+    """
+    if preprocessing_steps.get("normalize", False):
+        features = tf.math.l2_normalize(features, axis=-1)
+
+    if "scale" in preprocessing_steps:
+        scale = preprocessing_steps["scale"]
+        features = features * scale
+
+    if "clip" in preprocessing_steps:
+        min_val, max_val = preprocessing_steps["clip"]
+        features = tf.clip_by_value(features, min_val, max_val)
+
+    return features
