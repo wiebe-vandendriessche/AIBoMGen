@@ -58,7 +58,7 @@ def create_multiclass_model(input_shape, num_classes):
     model = tf.keras.Sequential([
         tf.keras.layers.Dense(128, activation='relu', input_shape=input_shape),
         tf.keras.layers.Dense(64, activation='relu'),
-        tf.keras.layers.Dense(num_classes, activation='softmax')  # Output layer for multi-class classification
+        tf.keras.layers.Dense(num_classes, activation='sigmoid'),  # Use 'softmax' binary classification
     ])
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model

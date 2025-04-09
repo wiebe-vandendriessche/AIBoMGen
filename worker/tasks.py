@@ -39,7 +39,7 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
         validate_model_and_dataset_definition(model, dataset_definition)
 
         # Train the model
-        model.fit(x=dataset, epochs=10, batch_size=32, verbose=1)
+        model.fit(x=dataset, epochs=100, batch_size=32, verbose=2)
 
         return {"status": "Training completed", "model": model_filename, "dataset": dataset_filename}
     except Exception as e:

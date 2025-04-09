@@ -24,8 +24,6 @@ services:
   worker:
     build:
       context: ./worker
-    container_name: celery_worker
-    command: celery -A tasks worker --loglevel=info
     mem_limit: 4g
     depends_on:
       - redis
@@ -35,12 +33,16 @@ services:
       - shared_storage:/app/uploads  # Shared volume for file exchange
       - ./host_output_dir:/app/results
       - ./host_logging_dir:/app/logs
+    deploy:
+      replicas: 3  # Define 3 replicas for the worker to demonstrate scalability
+
 
   flower:
     build:
       context: ./worker
     container_name: flower
-    command: celery -A celery_config flower --basic_auth=$FLOWER_BASIC_AUTH
+    entrypoint: []  # Override the entrypoint to disable entrypoint.sh (otherwise flower will run as a worker)
+    command: celery -A celery_config flower --port=5555 --basic_auth=$FLOWER_BASIC_AUTH
     ports:
       - "5555:5555"
     depends_on:
