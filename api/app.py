@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi.responses import FileResponse
 from celery.result import AsyncResult
 from celery import Celery
 from dotenv import load_dotenv
@@ -71,12 +72,37 @@ async def submit_job(
 @app.get("/job_status/{job_id}")
 async def job_status(job_id: str):
     job = AsyncResult(job_id, app=celery_app)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
     return {"status": job.status, "result": job.result}
 
-@app.get("/job_result/{job_id}")
-async def job_result(job_id: str):
+
+# This helper function retrieves the unique directory for the job ID
+def get_unique_dir_from_job(job_id: str):
     job = AsyncResult(job_id, app=celery_app)
-    if job.status == 'SUCCESS':
-        return {"result": job.result}
-    else:
-        return {"status": job.status}
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    directory = job.result.get("unique_dir")
+    if not directory:
+        raise HTTPException(status_code=404, detail="Unique directory not found.")
+    return os.path.join(UPLOAD_DIR, directory)
+
+@app.get("/job_artifacts/{job_id}")
+async def get_job_artifacts(job_id: str):
+    unique_dir = get_unique_dir_from_job(job_id)
+    if not os.path.exists(unique_dir):
+        raise HTTPException(status_code=404, detail="Job artifacts not found.")
+
+    # List available artifacts
+    artifacts = os.listdir(unique_dir)
+    return {"job_id": job_id, "artifacts": artifacts}
+
+@app.get("/job_artifacts/{job_id}/{artifact_name}")
+async def download_artifact(job_id: str, artifact_name: str):
+    unique_dir = get_unique_dir_from_job(job_id)
+    if not os.path.exists(unique_dir):
+        raise HTTPException(status_code=404, detail="Job artifacts not found.")
+    artifact_path = os.path.join(UPLOAD_DIR, unique_dir, artifact_name)
+    if not os.path.exists(artifact_path):
+        raise HTTPException(status_code=404, detail="Artifact not found.")
+    return FileResponse(artifact_path, media_type="application/octet-stream", filename=artifact_name)

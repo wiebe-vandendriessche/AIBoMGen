@@ -6,6 +6,7 @@ import time
 import stat
 import yaml
 import pandas as pd
+import json
 
 UPLOAD_DIR = "/app/uploads"  # Shared volume location
 
@@ -40,22 +41,43 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
 
         # Train the model
         model.fit(x=dataset, epochs=100, batch_size=32, verbose=2)
+        
+        # Save the trained model
+        trained_model_path = os.path.join(unique_dir, "trained_model.keras")
+        model.save(trained_model_path)
+        
+        # Save training metrics
+        metrics_path = os.path.join(unique_dir, "metrics.json")
+        with open(metrics_path, "w") as f:
+            json.dump(model.history.history, f)  # Use model.history.history instead of model.history
+        # Save logs
+        logs_path = os.path.join(unique_dir, "logs.txt")
+        with open(logs_path, "w") as f:
+            f.write("Training completed successfully.\n")
+        
 
-        return {"status": "Training completed", "model": model_filename, "dataset": dataset_filename}
+        # Store the unique_dir in the result!!
+        result = {
+            "training_status": "training job completed",
+            "unique_dir": unique_dir,
+            "message": "Training completed successfully."
+        }
+        return result    
     except Exception as e:
-        return {"error": f"An error occurred during training: {str(e)}"}
+        # Save error logs
+        error_logs_path = os.path.join(unique_dir, "error_logs.txt")
+        with open(error_logs_path, "w") as f:
+            f.write(f"An error occurred: {str(e)}\n")
+        return {
+            "training_status": "training job failed",
+            "unique_dir": unique_dir,
+            "error": str(e)
+        }
     finally:
-        # Cleanup: Delete only the unique directory
-        if os.path.exists(unique_dir):
-            try:
-                # Release TensorFlow resources
-                tf.keras.backend.clear_session()
-
-                # Remove the directory
-                shutil.rmtree(unique_dir)
-                print(f"Directory {unique_dir} removed.")
-            except Exception as e:
-                print(f"Error removing directory {unique_dir}: {str(e)}")
+        print("Task ${run_training.request.id} completed.")
+        print("Data in the unique directory:")
+        for filename in os.listdir(unique_dir):
+            print(f"- {filename}")
                 
 
         # model.fit(
