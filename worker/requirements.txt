@@ -5,3 +5,5 @@ python-dotenv
 tensorflow
 PyYAML
 pandas
+cryptography
+cyclonedx-python-lib

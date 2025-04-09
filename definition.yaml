@@ -1,5 +1,0 @@
-input_shape: [10]
-output_shape: [1]
-features:
-  feature: float  
-label: label  

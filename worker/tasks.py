@@ -7,6 +7,7 @@ import stat
 import yaml
 import pandas as pd
 import json
+from aibom_generator import generate_basic_aibom, sign_aibom, save_aibom
 
 UPLOAD_DIR = "/app/uploads"  # Shared volume location
 
@@ -14,6 +15,10 @@ UPLOAD_DIR = "/app/uploads"  # Shared volume location
 def run_training(model_filename, dataset_filename, dataset_definition_filename, unique_dir):
     """Training task"""
     try:
+        start_task_time = time.time()
+        start_task_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_task_time))
+        print(f"Task started at UTC: {start_task_time_utc}")
+        
         model_path = os.path.join(unique_dir, model_filename)
         dataset_path = os.path.join(unique_dir, dataset_filename)
         dataset_definition_path = os.path.join(unique_dir, dataset_definition_filename)
@@ -39,6 +44,10 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
         # Validate compatibility
         validate_model_and_dataset_definition(model, dataset_definition)
 
+        start_training_time = time.time()
+        start_training_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_training_time))
+        print(f"Training started at UTC: {start_training_time_utc}")
+        
         # Train the model
         model.fit(x=dataset, epochs=100, batch_size=32, verbose=2)
         
@@ -54,13 +63,40 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
         logs_path = os.path.join(unique_dir, "logs.txt")
         with open(logs_path, "w") as f:
             f.write("Training completed successfully.\n")
+            
+        start_aibom_time = time.time()
+        start_aibom_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_aibom_time))
+        print(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
         
+        # Generate and save the AIBoM
+        input_files = [model_path, dataset_path, dataset_definition_path]
+        output_files = [trained_model_path, metrics_path, logs_path]
+        config = {"epochs": 100, "batch_size": 32}
+        
+        # Set capture environment
+        environment = {
+            "python_version": "3.9",
+            "tensorflow_version": tf.__version__,
+            "request_time": start_task_time_utc,
+            "start_training_time": start_training_time_utc,
+            "start_aibom_time": start_aibom_time_utc,
+            "training_time": start_aibom_time - start_training_time,
+            "job_id": celery_app.current_task.request.id,
+            "unique_dir": unique_dir,
+        }
+        
+        aibom = generate_basic_aibom(input_files, output_files, config, environment)
+        signature = sign_aibom(aibom, "private_key.pem")
+        save_aibom(aibom, signature, unique_dir)
 
-        # Store the unique_dir in the result!!
         result = {
             "training_status": "training job completed",
             "unique_dir": unique_dir,
-            "message": "Training completed successfully."
+            "job_id": celery_app.current_task.request.id,
+            "message": "Training completed successfully and AIBoM generated.",
+            "aibom_path": os.path.join(unique_dir, "aibom.json"),
+            "signature_path": os.path.join(unique_dir, "aibom.sig"),
+            "trained_model_path": trained_model_path,
         }
         return result    
     except Exception as e:
