@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import shutil
 import uuid
+from shared.minio_utils import upload_file_to_minio, create_bucket_if_not_exists, list_files_in_bucket, generate_presigned_url
 
 load_dotenv()
 
@@ -18,10 +19,10 @@ celery_app = Celery(
 
 app = FastAPI()
 
-# Shared directory for file exchange between FastAPI and Celery
-UPLOAD_DIR = "/app/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+@app.on_event("startup")
+async def startup_event():
+    # Ensure the bucket exists when the API starts
+    create_bucket_if_not_exists()
 
 @app.post("/submit_job_by_model_and_data")
 async def submit_job(
@@ -30,41 +31,35 @@ async def submit_job(
     dataset_definition: UploadFile = File(...)
 ):
     try:
-        # Create a unique directory for this upload
-        unique_dir = os.path.join(UPLOAD_DIR, str(uuid.uuid4()))
-        os.makedirs(unique_dir, exist_ok=True)
+        # Generate a unique directory for the job
+        unique_dir = str(uuid.uuid4())
+        
+        # Save files temporarily
+        temp_dir = os.path.join("/tmp", unique_dir)
+        os.makedirs(temp_dir, exist_ok=True)
 
-        # Save model file
-        model_path = os.path.join(unique_dir, model.filename)
+        model_path = os.path.join(temp_dir, model.filename)
+        dataset_path = os.path.join(temp_dir, dataset.filename)
+        dataset_definition_path = os.path.join(temp_dir, dataset_definition.filename)
+
         with open(model_path, "wb") as buffer:
             shutil.copyfileobj(model.file, buffer)
-        os.sync()  # Ensures file is written to disk
-
-        # Save dataset file
-        dataset_path = os.path.join(unique_dir, dataset.filename)
         with open(dataset_path, "wb") as buffer:
             shutil.copyfileobj(dataset.file, buffer)
-        os.sync()  # Ensures file is written to disk
-        
-        # Save dataset definition file
-        dataset_definition_path = os.path.join(unique_dir, dataset_definition.filename)
         with open(dataset_definition_path, "wb") as buffer:
             shutil.copyfileobj(dataset_definition.file, buffer)
 
-        # Verify files exist before proceeding
-        if not os.path.exists(model_path):
-            raise HTTPException(status_code=500, detail=f"Model file {model.filename} was not properly saved.")
-        if not os.path.exists(dataset_path):
-            raise HTTPException(status_code=500, detail=f"Dataset file {dataset.filename} was not properly saved.")
-        if not os.path.exists(dataset_definition_path):
-            raise HTTPException(status_code=500, detail=f"Dataset definition file {dataset_definition.filename} was not properly saved.")
+        # Upload files to MinIO
+        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
+        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}")
+        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}")
 
-        # Send Celery task with the unique directory
+        # Send Celery task with file URLs
         task = celery_app.send_task(
             'tasks.run_training',
-            args=[model.filename, dataset.filename, dataset_definition.filename, unique_dir]
+            args=[unique_dir, model_url, dataset_url, dataset_definition_url]
         )
-        return {"job_id": task.id, "unique_dir": unique_dir, "status": "Training started", "model_path": model_path, "dataset_path": dataset_path}
+        return {"job_id": task.id, "status": "Training started", "unique_dir": unique_dir}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
@@ -76,33 +71,52 @@ async def job_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found.")
     return {"status": job.status, "result": job.result}
 
-
-# This helper function retrieves the unique directory for the job ID
-def get_unique_dir_from_job(job_id: str):
-    job = AsyncResult(job_id, app=celery_app)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found.")
-    directory = job.result.get("unique_dir")
-    if not directory:
-        raise HTTPException(status_code=404, detail="Unique directory not found.")
-    return os.path.join(UPLOAD_DIR, directory)
-
 @app.get("/job_artifacts/{job_id}")
 async def get_job_artifacts(job_id: str):
-    unique_dir = get_unique_dir_from_job(job_id)
-    if not os.path.exists(unique_dir):
-        raise HTTPException(status_code=404, detail="Job artifacts not found.")
+    try:
+        # Retrieve the unique directory from the Celery task result
+        job = AsyncResult(job_id, app=celery_app)
+        if not job or not job.result:
+            raise HTTPException(status_code=404, detail="Job not found or not completed.")
+        unique_dir = job.result.get("unique_dir")
+        if not unique_dir:
+            raise HTTPException(status_code=404, detail="Unique directory not found.")
 
-    # List available artifacts
-    artifacts = os.listdir(unique_dir)
-    return {"job_id": job_id, "artifacts": artifacts}
+        # List all files in the job-specific directory in MinIO
+        artifacts = list_files_in_bucket(f"{unique_dir}/")
+        if not artifacts:
+            raise HTTPException(status_code=404, detail="No artifacts found for this job.")
+        return {"job_id": job_id, "artifacts": artifacts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve artifacts: {str(e)}")
+
 
 @app.get("/job_artifacts/{job_id}/{artifact_name}")
 async def download_artifact(job_id: str, artifact_name: str):
-    unique_dir = get_unique_dir_from_job(job_id)
-    if not os.path.exists(unique_dir):
-        raise HTTPException(status_code=404, detail="Job artifacts not found.")
-    artifact_path = os.path.join(UPLOAD_DIR, unique_dir, artifact_name)
-    if not os.path.exists(artifact_path):
-        raise HTTPException(status_code=404, detail="Artifact not found.")
-    return FileResponse(artifact_path, media_type="application/octet-stream", filename=artifact_name)
+    try:
+        # Retrieve the unique directory from the Celery task result
+        job = AsyncResult(job_id, app=celery_app)
+        if not job or not job.result:
+            raise HTTPException(status_code=404, detail="Job not found or not completed.")
+        unique_dir = job.result.get("unique_dir")
+        if not unique_dir:
+            raise HTTPException(status_code=404, detail="Unique directory not found.")
+
+        # List all files in the unique directory
+        all_files = list_files_in_bucket(f"{unique_dir}/")
+        if not all_files:
+            raise HTTPException(status_code=404, detail="No files found for this job.")
+
+        # Search for the artifact in the directory structure
+        matching_files = [file for file in all_files if file.endswith(f"/{artifact_name}")]
+        if not matching_files:
+            raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' not found.")
+        if len(matching_files) > 1:
+            raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
+
+        # Generate a presigned URL for the matching artifact
+        object_name = matching_files[0]
+        presigned_url = generate_presigned_url(object_name)
+        return {"artifact_name": artifact_name, "url": presigned_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")

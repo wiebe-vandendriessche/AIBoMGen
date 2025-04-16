@@ -7,3 +7,4 @@ PyYAML
 pandas
 cryptography
 cyclonedx-python-lib
+boto3

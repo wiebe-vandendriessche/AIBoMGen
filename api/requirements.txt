@@ -6,3 +6,4 @@ requests
 redis
 python-multipart
 python-dotenv
+boto3

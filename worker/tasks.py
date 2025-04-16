@@ -7,29 +7,46 @@ import stat
 import yaml
 import pandas as pd
 import json
-from aibom_generator import generate_basic_aibom, sign_aibom, save_aibom
+from aibom_generator import generate_basic_aibom, sign_aibom
+from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 
 UPLOAD_DIR = "/app/uploads"  # Shared volume location
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
-def run_training(model_filename, dataset_filename, dataset_definition_filename, unique_dir):
+def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
     """Training task"""
     try:
         start_task_time = time.time()
         start_task_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_task_time))
         print(f"Task started at UTC: {start_task_time_utc}")
         
-        model_path = os.path.join(unique_dir, model_filename)
-        dataset_path = os.path.join(unique_dir, dataset_filename)
-        dataset_definition_path = os.path.join(unique_dir, dataset_definition_filename)
+        # Create a temporary directory
+        temp_dir = os.path.join("/tmp", unique_dir)
+        os.makedirs(temp_dir, exist_ok=True)
 
-        # Ensure files exist
-        if not os.path.exists(model_path):
-            return {"error": "Model file not found", "model": model_path}
-        if not os.path.exists(dataset_path):
-            return {"error": "Dataset file not found", "dataset": dataset_path}
-        if not os.path.exists(dataset_definition_path):
-            return {"error": "Dataset definition file not found", "dataset_definition": dataset_definition_path}
+        # Define paths for downloaded files
+        model_dir = os.path.join(temp_dir, "model")
+        dataset_dir = os.path.join(temp_dir, "dataset")
+        dataset_definition_dir = os.path.join(temp_dir, "definition")
+        
+        # Ensure directories exist
+        os.makedirs(model_dir, exist_ok=True)
+        os.makedirs(dataset_dir, exist_ok=True)
+        os.makedirs(dataset_definition_dir, exist_ok=True)
+        
+        # Define filenames and paths
+        model_filename = model_url.split("/")[-1]
+        dataset_filename = dataset_url.split("/")[-1]
+        dataset_definition_filename = dataset_definition_url.split("/")[-1]
+        
+        model_path = os.path.join(model_dir, model_filename)
+        dataset_path = os.path.join(dataset_dir, dataset_filename)
+        dataset_definition_path = os.path.join(dataset_definition_dir, dataset_definition_filename)
+
+        # Download files from MinIO
+        download_file_from_minio(f"{unique_dir}/model/{model_filename}", model_path)
+        download_file_from_minio(f"{unique_dir}/dataset/{dataset_filename}", dataset_path)
+        download_file_from_minio(f"{unique_dir}/definition/{dataset_definition_filename}", dataset_definition_path)
 
         # Load dataset definition
         with open(dataset_definition_path, "r") as f:
@@ -51,16 +68,21 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
         # Train the model
         model.fit(x=dataset, epochs=100, batch_size=32, verbose=2)
         
+        # Define paths for output artifacts
+        trained_model_path = os.path.join(temp_dir, "trained_model.keras")
+        metrics_path = os.path.join(temp_dir, "metrics.json")
+        logs_path = os.path.join(temp_dir, "logs.txt")
+        aibom_path = os.path.join(temp_dir, "aibom.json")
+        signature_path = os.path.join(temp_dir, "aibom.sig")
+ 
         # Save the trained model
-        trained_model_path = os.path.join(unique_dir, "trained_model.keras")
         model.save(trained_model_path)
         
         # Save training metrics
-        metrics_path = os.path.join(unique_dir, "metrics.json")
         with open(metrics_path, "w") as f:
-            json.dump(model.history.history, f)  # Use model.history.history instead of model.history
+            json.dump(model.history.history, f)
+
         # Save logs
-        logs_path = os.path.join(unique_dir, "logs.txt")
         with open(logs_path, "w") as f:
             f.write("Training completed successfully.\n")
             
@@ -85,35 +107,56 @@ def run_training(model_filename, dataset_filename, dataset_definition_filename, 
             "unique_dir": unique_dir,
         }
         
+        # Generate AIBoM
         aibom = generate_basic_aibom(input_files, output_files, config, environment)
         signature = sign_aibom(aibom, "private_key.pem")
-        save_aibom(aibom, signature, unique_dir)
+        
+        # Save AIBoM and signature
+        with open(aibom_path, "w") as f:
+            json.dump(aibom, f, indent=4)
+
+        with open(signature_path, "wb") as f:  # Open in binary mode
+            f.write(signature)
+            
+        # Upload output artifacts to MinIO
+        upload_file_to_minio(trained_model_path, f"{unique_dir}/trained_model.keras")
+        upload_file_to_minio(metrics_path, f"{unique_dir}/metrics.json")
+        upload_file_to_minio(logs_path, f"{unique_dir}/logs.txt")
+        upload_file_to_minio(aibom_path, f"{unique_dir}/aibom.json")
+        upload_file_to_minio(signature_path, f"{unique_dir}/aibom.sig")
 
         result = {
             "training_status": "training job completed",
             "unique_dir": unique_dir,
             "job_id": celery_app.current_task.request.id,
             "message": "Training completed successfully and AIBoM generated.",
-            "aibom_path": os.path.join(unique_dir, "aibom.json"),
-            "signature_path": os.path.join(unique_dir, "aibom.sig"),
-            "trained_model_path": trained_model_path,
+            "output_artifacts": [
+                "trained_model.keras",
+                "metrics.json",
+                "logs.txt",
+                "aibom.json",
+                "aibom.sig",
+            ],
         }
         return result    
     except Exception as e:
         # Save error logs
-        error_logs_path = os.path.join(unique_dir, "error_logs.txt")
+        error_logs_dir = os.path.join("/tmp", unique_dir)
+        os.makedirs(error_logs_dir, exist_ok=True)
+        error_logs_path = os.path.join(error_logs_dir, "error_logs.txt")
         with open(error_logs_path, "w") as f:
             f.write(f"An error occurred: {str(e)}\n")
+        
+        # Upload error logs to MinIO
+        upload_file_to_minio(error_logs_path, f"{unique_dir}/error_logs.txt")
+        
         return {
             "training_status": "training job failed",
             "unique_dir": unique_dir,
             "error": str(e)
         }
     finally:
-        print("Task ${run_training.request.id} completed.")
-        print("Data in the unique directory:")
-        for filename in os.listdir(unique_dir):
-            print(f"- {filename}")
+        print(f"Task {celery_app.current_task.request.id} completed.")
                 
 
         # model.fit(

@@ -4,6 +4,7 @@ import hashlib
 import time
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
+import base64
 
 def generate_hash(file_path):
     """Generate a SHA-256 hash for a file."""
@@ -35,15 +36,4 @@ def sign_aibom(aibom, private_key_path):
         padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
         hashes.SHA256()
     )
-    return signature
-
-def save_aibom(aibom, signature, unique_dir):
-    """Save the AIBoM and its signature to files."""
-    aibom_path = os.path.join(unique_dir, "aibom.json")
-    signature_path = os.path.join(unique_dir, "aibom.sig")
-    
-    with open(aibom_path, "w") as f:
-        json.dump(aibom, f, indent=4)
-    
-    with open(signature_path, "wb") as f:
-        f.write(signature)
+    return signature  # Return the raw binary signature
