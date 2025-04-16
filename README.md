@@ -1,4 +1,4 @@
-# AIBoMGen: Hugging Face Training API with AIBoM gen
+# AIBoMGen: Distributed AI Training with AIBoM Generation
 
 ## Overview
 AIBoMGen is a distributed system for training AI models with a focus on **trustability**, integrity, reproducibility, and artifact management. The system ensures that the training process is fully auditable and tamper-proof by generating an **AI Bill of Materials (AIBoM)**, which includes cryptographic attestations of the training environment, inputs, and outputs.
