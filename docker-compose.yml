@@ -1,0 +1,72 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"  # RabbitMQ messaging port
+      - "15672:15672"  # RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: $RABBITMQ_USER
+      RABBITMQ_DEFAULT_PASS: $RABBITMQ_PASSWORD
+    env_file:
+      - .env
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    environment:
+      MINIO_ROOT_USER: $MINIO_ROOT_USER
+      MINIO_ROOT_PASSWORD: $MINIO_ROOT_PASSWORD
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    env_file:
+      - .env
+
+  api:
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+    env_file:
+      - .env
+
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    mem_limit: 4g
+    depends_on:
+      - rabbitmq
+    env_file:
+      - .env
+    deploy:
+      replicas: 3  # Define 3 replicas for the worker to demonstrate scalability
+
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    container_name: flower
+    entrypoint: []  # Override the entrypoint to disable entrypoint.sh (otherwise flower will run as a worker)
+    command: celery -A celery_config flower --port=5555 --basic_auth=$FLOWER_BASIC_AUTH
+    ports:
+      - "5555:5555"
+    depends_on:
+      - rabbitmq
+      - worker
+    env_file:
+      - .env
+
+volumes:
+  minio_data:
+    driver: local

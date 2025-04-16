@@ -1,6 +1,11 @@
 .idea/
 .iml
 
+# own
+host_logging_dir
+host_output_dir
+private_key.pem
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

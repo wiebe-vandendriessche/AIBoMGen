@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+celery
+pydantic
+requests
+python-multipart
+python-dotenv
+boto3
