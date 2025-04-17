@@ -14,6 +14,13 @@ from shared.zip_utils import ZipValidationError, validate_and_extract_zip
 def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
     """Training task with support for tabular and image data."""
     try:
+        # Confirm GPU availability
+        gpus = tf.config.list_physical_devices('GPU')
+        if not gpus:
+            raise RuntimeError("No GPU devices found. Ensure that the host machine has a GPU and the NVIDIA runtime is properly configured.")
+        else:
+            print(f"GPUs available: {[gpu.name for gpu in gpus]}")
+        
         start_task_time = time.time()
         start_task_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_task_time))
         print(f"Task started at UTC: {start_task_time_utc}")
