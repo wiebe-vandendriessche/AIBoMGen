@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from celery.result import AsyncResult
 from celery import Celery
 from dotenv import load_dotenv
@@ -7,6 +7,9 @@ import os
 import shutil
 import uuid
 from shared.minio_utils import upload_file_to_minio, create_bucket_if_not_exists, list_files_in_bucket, generate_presigned_url
+from shared.zip_utils import ZipValidationError, validate_zip_file
+from contextlib import asynccontextmanager
+import yaml
 
 load_dotenv()
 
@@ -17,12 +20,13 @@ celery_app = Celery(
     backend=os.getenv("CELERY_RESULT_BACKEND"),
 )
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Ensure the bucket exists when the API starts
     create_bucket_if_not_exists()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/submit_job_by_model_and_data")
 async def submit_job(
@@ -48,6 +52,19 @@ async def submit_job(
             shutil.copyfileobj(dataset.file, buffer)
         with open(dataset_definition_path, "wb") as buffer:
             shutil.copyfileobj(dataset_definition.file, buffer)
+        
+        # Load the dataset definition to determine the dataset type
+        with open(dataset_definition_path, "r") as f:
+            dataset_definition_yaml = yaml.safe_load(f)
+        
+        dataset_type = dataset_definition_yaml.get("type", "csv")  # Default to 'csv' if not specified
+
+        # Validate the dataset .zip file only if the type is 'image'
+        if dataset_type == "image":
+            try:
+                validate_zip_file(dataset_path)  # Ensure the .zip file is safe
+            except ZipValidationError as e:
+                raise HTTPException(status_code=400, detail=str(e))
 
         # Upload files to MinIO
         model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
@@ -92,7 +109,10 @@ async def get_job_artifacts(job_id: str):
 
 
 @app.get("/job_artifacts/{job_id}/{artifact_name}")
-async def download_artifact(job_id: str, artifact_name: str):
+async def download_artifact(job_id: str, artifact_name: str, redirect: bool = True, test_mode: bool = False):
+    """
+    Retrieve a presigned URL for downloading an artifact.
+    """
     try:
         # Retrieve the unique directory from the Celery task result
         job = AsyncResult(job_id, app=celery_app)
@@ -117,6 +137,16 @@ async def download_artifact(job_id: str, artifact_name: str):
         # Generate a presigned URL for the matching artifact
         object_name = matching_files[0]
         presigned_url = generate_presigned_url(object_name)
-        return {"artifact_name": artifact_name, "url": presigned_url}
+        
+        # Modify the presigned URL for testing purposes if test_mode is enabled
+        if test_mode:
+            presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
+        
+        if redirect:
+            # Redirect to the presigned URL for direct download
+            return RedirectResponse(url=presigned_url)
+        else:
+            # Return the presigned URL in JSON format
+            return {"artifact_name": artifact_name, "url": presigned_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
