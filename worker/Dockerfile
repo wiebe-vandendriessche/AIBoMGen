@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:2.19.0-gpu
+FROM tensorflow/tensorflow:2.16.1-gpu
 
 WORKDIR /app
 

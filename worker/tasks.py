@@ -15,7 +15,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
     """Training task with support for tabular and image data."""
     try:
         # Confirm GPU availability
-        gpus = tf.config.list_physical_devices('GPU')
+        gpus = tf.config.list_physical_devices()
         if not gpus:
             raise RuntimeError("No GPU devices found. Ensure that the host machine has a GPU and the NVIDIA runtime is properly configured.")
         else:

@@ -61,9 +61,7 @@ services:
         reservations:
           memory: 2g  # Reserve 2GB of memory
           cpus: "1.0"  # Reserve 1 CPU core
-          devices:
-            - capabilities: [gpu]
-    runtime: nvidia  # Ensure this is present
+    runtime: nvidia  # Ensure this is present (if using your laptop GPU, safest to only use one worker)
     read_only: true
     tmpfs:
       - /tmp
