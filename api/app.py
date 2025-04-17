@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request  # Import Request
 from fastapi.responses import FileResponse, RedirectResponse
 from celery.result import AsyncResult
 from celery import Celery
@@ -10,6 +10,8 @@ from shared.minio_utils import upload_file_to_minio, create_bucket_if_not_exists
 from shared.zip_utils import ZipValidationError, validate_zip_file
 from contextlib import asynccontextmanager
 import yaml
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 load_dotenv()
 
@@ -28,8 +30,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
 @app.post("/submit_job_by_model_and_data")
+@limiter.limit("1/minute")  # Limit to 1 requests per minute
 async def submit_job(
+    request: Request,
     model: UploadFile = File(...), 
     dataset: UploadFile = File(...),
     dataset_definition: UploadFile = File(...)

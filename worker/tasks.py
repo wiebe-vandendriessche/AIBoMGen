@@ -3,7 +3,6 @@ import os
 import shutil
 import tensorflow as tf
 import time
-import stat
 import yaml
 import pandas as pd
 import json
