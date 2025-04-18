@@ -6,7 +6,8 @@ import time
 import yaml
 import pandas as pd
 import json
-from aibom_generator import generate_basic_aibom, sign_aibom
+from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx
+from bom_data_generator import generate_basic_bom_data, sign_basic_bom_data
 from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 
@@ -101,8 +102,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
         trained_model_path = os.path.join(temp_dir, "trained_model.keras")
         metrics_path = os.path.join(temp_dir, "metrics.json")
         logs_path = os.path.join(temp_dir, "logs.txt")
-        aibom_path = os.path.join(temp_dir, "aibom.json")
-        signature_path = os.path.join(temp_dir, "aibom.sig")
+        bom_data_path = os.path.join(temp_dir, "bom_data.json")
+        signed_bom_data_path = os.path.join(temp_dir, "bom_data.sig")
  
         # Save the trained model
         model.save(trained_model_path)
@@ -117,11 +118,24 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
             
         start_aibom_time = time.time()
         start_aibom_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_aibom_time))
-        print(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
+        print(f"BOM data generation started at UTC: {start_aibom_time_utc}")
         
-        # Generate and save the AIBoM
-        input_files = [model_path, dataset_path, dataset_definition_path]
-        output_files = [trained_model_path, metrics_path, logs_path]
+        # Generate and save the BOM data
+        
+        # Define input files
+        input_files = {
+            "model_path": model_path,
+            "dataset_path": dataset_path,
+            "dataset_definition_path": dataset_definition_path,
+        }
+        
+        # Define output files
+        output_files = {
+            "trained_model_path": trained_model_path,
+            "metrics_path": metrics_path,
+            "logs_path": logs_path,
+        }
+        
         config = {"epochs": 100, "batch_size": 32}
         
         # Set capture environment
@@ -136,24 +150,31 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
             "unique_dir": unique_dir,
         }
         
-        # Generate AIBoM
-        aibom = generate_basic_aibom(input_files, output_files, config, environment)
-        signature = sign_aibom(aibom, "private_key.pem")
+        # Generate BOM data
+        bom_data = generate_basic_bom_data(input_files, output_files, config, environment)
+        signed_bom_data = sign_basic_bom_data(bom_data, "private_key.pem")
         
-        # Save AIBoM and signature
-        with open(aibom_path, "w") as f:
-            json.dump(aibom, f, indent=4)
+        # Save BOM data and signature
+        with open(bom_data_path, "w") as f:
+            json.dump(bom_data, f, indent=4)
 
-        with open(signature_path, "wb") as f:  # Open in binary mode
-            f.write(signature)
-            
+        with open(signed_bom_data_path, "wb") as f:  # Open in binary mode
+            f.write(signed_bom_data)
+        
+        cyclonedx_bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")            
+        # Transform to CycloneDX BOM
+        cyclonedx_bom = transform_to_cyclonedx(bom_data)
+        
         # Upload output artifacts to MinIO
         upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
         upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
         upload_file_to_minio(logs_path, f"{unique_dir}/output/logs.txt")
-        upload_file_to_minio(aibom_path, f"{unique_dir}/output/aibom.json")
-        upload_file_to_minio(signature_path, f"{unique_dir}/output/aibom.sig")
-
+        upload_file_to_minio(bom_data_path, f"{unique_dir}/output/bom_data.json")
+        upload_file_to_minio(signed_bom_data_path, f"{unique_dir}/output/bom_data.sig")
+        
+        serialize_bom(cyclonedx_bom, cyclonedx_bom_path)
+        upload_file_to_minio(cyclonedx_bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
+        
         result = {
             "training_status": "training job completed",
             "unique_dir": unique_dir,
@@ -163,8 +184,9 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
                 "trained_model.keras",
                 "metrics.json",
                 "logs.txt",
-                "aibom.json",
-                "aibom.sig",
+                "bom_data.json",
+                "bom_data.sig",
+                "cyclonedx_bom.json",
             ],
         }
         return result    

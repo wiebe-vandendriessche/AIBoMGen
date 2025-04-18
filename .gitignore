@@ -5,6 +5,7 @@
 host_logging_dir
 host_output_dir
 private_key.pem
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
