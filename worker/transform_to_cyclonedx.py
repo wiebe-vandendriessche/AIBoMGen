@@ -26,9 +26,6 @@ def transform_to_cyclonedx(bom_data):
         Bom: A CycloneDX formatted BOM instance.
     """
     
-    print("TEST / Transforming BOM data to CycloneDX format...")
-    print(json.dumps(bom_data, indent=4))
-    
     # Create a new BOM instance
     bom = Bom()
     bom.version = 1
@@ -63,6 +60,7 @@ def transform_to_cyclonedx(bom_data):
     # BOM: components: add final model to the BOM   ----------------------------------------------------------------------
     model_component = Component(
         type=ComponentType.MACHINE_LEARNING_MODEL,
+        authors=bom_data.get("author", "Unknown Author"),
         name=bom_data.get("model_name", "Unknown Model"),
         version=bom_data.get("model_version", "Unknown Version"),
         description=bom_data.get("model_description", "Description of the AI model"),

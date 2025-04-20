@@ -14,20 +14,19 @@ def generate_hash(file_path):
             sha256.update(chunk)
     return sha256.hexdigest()
 
-def generate_basic_bom_data(input_files, output_files, config, environment):
+def generate_basic_bom_data(input_files, output_files, fit_params, environment, optional_params=None):
     """
     Generate the basic BOM data as a dictionary.
     Args:
         input_files (list): List of input file paths.
         output_files (list): List of output file paths.
-        config (dict): Configuration details for the training process.
+        fit_params (dict): Configuration details for the training process.
         environment (dict): Environment details for the training process.
+        optional_params (dict): Optional parameters for the model metadata.
     Returns:
         dict: The generated BOM data.
     """
-    
-    print("TEST / generate_basic_bom_data")
-    
+        
     # Extract paths from input_files
     dataset_path = input_files.get("dataset_path")
     model_path = input_files.get("model_path")
@@ -39,25 +38,26 @@ def generate_basic_bom_data(input_files, output_files, config, environment):
     logs_path = output_files.get("logs_path")
 
     # Example static values for the model (these can be dynamically set later if needed)
-    model_name = "Example Model"
-    model_version = "1.0"
-    model_description = "A sample AI model for demonstration purposes."
-    framework = "TensorFlow"
-    model_type = "Image Classification"
-    base_model = "ResNet50"
-    base_model_source = "https://example.com/resnet50"
-    intended_use = "Classifying images of cats and dogs."
-    out_of_scope = "Medical imaging or other critical applications."
-    misuse_or_malicious = "Using the model for adversarial attacks."
-    license_name = "Apache-2.0"
+    model_name = optional_params.get("model_name", "Unknown")
+    model_version = optional_params.get("model_version", "Unknown")
+    model_description = optional_params.get("model_description", "Unknown")
+    author = optional_params.get("author", "Unknown")
+    framework = optional_params.get("framework", "Unknown")
+    model_type = optional_params.get("model_type", "Unknown")
+    base_model = optional_params.get("base_model", "Unknown")
+    base_model_source = optional_params.get("base_model_source", "Unknown")
+    intended_use = optional_params.get("intended_use", "Unknown")
+    out_of_scope = optional_params.get("out_of_scope", "Unknown")
+    misuse_or_malicious = optional_params.get("misuse_or_malicious", "Unknown")
+    license_name = optional_params.get("license_name", "Unknown")
     
     # Generate dataset information
     datasets = {}
     if dataset_path and dataset_definition_path:
         datasets["training_data"] = {
-            "version": "1.0",
+            "version": "Unknown",
             "source": dataset_path,
-            "license": "CC-BY-4.0",  # Replace with actual license if available
+            "license": "Unknown",  # Replace with actual license if available
             "description": "Training dataset for the model",
             "definition": dataset_definition_path,  # Include dataset definition path
         }
@@ -107,6 +107,7 @@ def generate_basic_bom_data(input_files, output_files, config, environment):
         "model_type": model_type,
         "base_model": base_model,
         "base_model_source": base_model_source,
+        "author": author,
         "intended_use": intended_use,
         "out_of_scope": out_of_scope,
         "misuse_or_malicious": misuse_or_malicious,

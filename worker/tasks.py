@@ -10,25 +10,70 @@ from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx
 from bom_data_generator import generate_basic_bom_data, sign_basic_bom_data
 from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
+import logging
+
+
+# Create a custom logger for your application
+def get_application_logger(unique_dir):
+    logs_dir = os.path.join("/tmp", unique_dir)
+    os.makedirs(logs_dir, exist_ok=True)
+    logs_path = os.path.join(logs_dir, "application_logs.log")
+
+    logger = logging.getLogger(f"application_logger_{unique_dir}")
+    logger.setLevel(logging.INFO)
+
+    # Add a file handler
+    file_handler = logging.FileHandler(logs_path)
+    file_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+
+    # Avoid adding duplicate handlers
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+
+    return logger, logs_path
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
-def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
+def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, optional_params=None, fit_params=None):
     """Training task with support for tabular and image data."""
+    logger, logs_path = get_application_logger(unique_dir)
+    logger.info("Starting the training task.")
+    
+    # Create a temporary directory
+    temp_dir = os.path.join("/tmp", unique_dir)
+    os.makedirs(temp_dir, exist_ok=True)
+
+    logging.info("Logging system initialized successfully.")
+    
     try:
+           
         # Confirm GPU availability
-        gpus = tf.config.list_physical_devices()
+        gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
-            raise RuntimeError("No GPU devices found. Ensure that the host machine has a GPU and the NVIDIA runtime is properly configured.")
+            logging.warning("No GPU devices found!")
         else:
-            print(f"GPUs available: {[gpu.name for gpu in gpus]}")
-        
+            logging.info(f"GPUs available: {[gpu.name for gpu in gpus]}")
+
+        cpus = tf.config.list_physical_devices('CPU')
+        if not cpus:
+            logging.warning("No CPU devices found!")
+        else:
+            logging.info(f"CPUs available: {[cpu.name for cpu in cpus]}")
+       
+        # Device selection
+        if len(gpus) > 0 and len(cpus) > 0:
+            logging.info("Both GPU and CPU devices are available. Using GPU for training.")
+            tf.config.set_visible_devices(gpus[0], 'GPU')
+        elif len(cpus) > 0:
+            logging.info("Only CPU devices are available. Using CPU for training.")
+            tf.config.set_visible_devices(cpus[0], 'CPU')
+        else:
+            raise RuntimeError("No available devices for training.")
+
         start_task_time = time.time()
         start_task_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_task_time))
-        print(f"Task started at UTC: {start_task_time_utc}")
-        
-        # Create a temporary directory
-        temp_dir = os.path.join("/tmp", unique_dir)
-        os.makedirs(temp_dir, exist_ok=True)
+        logging.info(f"Task started at UTC: {start_task_time_utc}")
 
         # Define paths for downloaded files
         model_dir = os.path.join(temp_dir, "model")
@@ -50,16 +95,19 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
         dataset_definition_path = os.path.join(dataset_definition_dir, dataset_definition_filename)
 
         # Download files from MinIO
+        logging.info("Downloading files from MinIO...")
         download_file_from_minio(f"{unique_dir}/model/{model_filename}", model_path)
         download_file_from_minio(f"{unique_dir}/dataset/{dataset_filename}", dataset_path)
         download_file_from_minio(f"{unique_dir}/definition/{dataset_definition_filename}", dataset_definition_path)
 
         # Load dataset definition
+        logging.info("Loading dataset definition...")
         with open(dataset_definition_path, "r") as f:
             dataset_definition = yaml.safe_load(f)
 
         # Load dataset based on type
         dataset_type = dataset_definition.get("type", "csv")
+        logging.info(f"Dataset type: {dataset_type}")
         if dataset_type == "csv":
             dataset = load_csv_dataset_with_definition(dataset_path, dataset_definition)
         elif dataset_type == "image":
@@ -70,74 +118,97 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
             dataset_extracted_path = os.path.join(temp_dir, "dataset_unzipped")
             os.makedirs(dataset_extracted_path, exist_ok=True)
             try:
+                logging.info("Validating and extracting dataset zip file...")
+                # Validate and extract the zip file
                 validate_and_extract_zip(dataset_zip_path, dataset_extracted_path)
+                logging.info("Dataset zip file extracted successfully.")
+                # Load the dataset from the extracted path
+                dataset = load_image_dataset(dataset_extracted_path, dataset_definition)
+
             except ZipValidationError as e:
                 raise Exception(f"Dataset validation failed: {str(e)}")
             
-            dataset = load_image_dataset(dataset_extracted_path, dataset_definition)
         elif dataset_type == "tfrecord":
             dataset = load_TFRecordDataset_with_definition(dataset_path, dataset_definition)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
         # Load model
+        logging.info("Loading model...")
         model = tf.keras.models.load_model(model_path)
 
         # Validate compatibility
+        logging.info("Validating model and dataset compatibility...")
         validate_model_and_dataset_definition(model, dataset_definition)
 
+        # Training start
         start_training_time = time.time()
         start_training_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_training_time))
-        print(f"Training started at UTC: {start_training_time_utc}")
+        logging.info(f"Training started at UTC: {start_training_time_utc}")
         
-          # Train the model
+
+        # Split the dataset into training and validation subsets
+        validation_split = fit_params.get("validation_split", 0.2)  # Default to 20% validation
+        if isinstance(dataset, tf.data.Dataset) and validation_split > 0.0:
+            logging.info("Splitting dataset into training and validation subsets...")
+            # Calculate the number of samples in the dataset
+            dataset_size = sum(1 for _ in dataset)
+            val_size = int(validation_split * dataset_size)
+            train_size = dataset_size - val_size
+
+            # Split the dataset
+            train_dataset = dataset.take(train_size)
+            val_dataset = dataset.skip(train_size)
+        else:
+            train_dataset = dataset
+            val_dataset = None
+        
+        # Train the model using fit_params
+        logging.info("Starting model training...")
         model.fit(
-            x=dataset,
-            epochs=dataset_definition.get("epochs", 100),
-            batch_size=dataset_definition.get("batch_size", 32),
-            verbose=2
+            x=train_dataset,
+            validation_data=val_dataset,  # Use the validation dataset if available
+            epochs=fit_params.get("epochs", 50),
+            verbose=2, # 2 for one line per epoch
+            initial_epoch=fit_params.get("initial_epoch", 0),
+            steps_per_epoch=fit_params.get("steps_per_epoch", train_size // fit_params.get("batch_size", 32)),
+            validation_steps=fit_params.get("validation_steps", val_size // fit_params.get("batch_size", 32)) if val_dataset else None,
+            validation_freq=fit_params.get("validation_freq", 1),
         )
+        logging.info("Model training completed.")
         
         # Define paths for output artifacts
         trained_model_path = os.path.join(temp_dir, "trained_model.keras")
         metrics_path = os.path.join(temp_dir, "metrics.json")
-        logs_path = os.path.join(temp_dir, "logs.txt")
         bom_data_path = os.path.join(temp_dir, "bom_data.json")
         signed_bom_data_path = os.path.join(temp_dir, "bom_data.sig")
  
         # Save the trained model
+        logging.info("Saving trained model...")
         model.save(trained_model_path)
         
         # Save training metrics
+        logging.info("Saving training metrics...")
         with open(metrics_path, "w") as f:
             json.dump(model.history.history, f)
 
-        # Save logs
-        with open(logs_path, "w") as f:
-            f.write("Training completed successfully.\n")
-            
+        # Generate and save the BOM data
         start_aibom_time = time.time()
         start_aibom_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_aibom_time))
-        print(f"BOM data generation started at UTC: {start_aibom_time_utc}")
-        
-        # Generate and save the BOM data
-        
+        logging.info(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
+        logging.info("Generating BOM data...")
         # Define input files
         input_files = {
             "model_path": model_path,
             "dataset_path": dataset_path,
             "dataset_definition_path": dataset_definition_path,
         }
-        
         # Define output files
         output_files = {
             "trained_model_path": trained_model_path,
             "metrics_path": metrics_path,
             "logs_path": logs_path,
         }
-        
-        config = {"epochs": 100, "batch_size": 32}
-        
         # Set capture environment
         environment = {
             "python_version": "3.9",
@@ -151,9 +222,14 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
         }
         
         # Generate BOM data
-        bom_data = generate_basic_bom_data(input_files, output_files, config, environment)
+        bom_data = generate_basic_bom_data(input_files, output_files, fit_params, environment, optional_params)
+        logging.info("BOM data generated successfully.")
+        logging.info(f"Signing BOM data...")
+        # Sign the BOM data
         signed_bom_data = sign_basic_bom_data(bom_data, "private_key.pem")
+        logging.info("BOM data signed successfully.")
         
+        logging.info("Saving BOM data and signature...")
         # Save BOM data and signature
         with open(bom_data_path, "w") as f:
             json.dump(bom_data, f, indent=4)
@@ -161,20 +237,21 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
         with open(signed_bom_data_path, "wb") as f:  # Open in binary mode
             f.write(signed_bom_data)
         
+        logging.info("Transforming BOM data to CycloneDX format...")
         cyclonedx_bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")            
         # Transform to CycloneDX BOM
         cyclonedx_bom = transform_to_cyclonedx(bom_data)
-        
+        serialize_bom(cyclonedx_bom, cyclonedx_bom_path)
+
         # Upload output artifacts to MinIO
+        logging.info("Uploading artifacts to MinIO...")
         upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
         upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
-        upload_file_to_minio(logs_path, f"{unique_dir}/output/logs.txt")
         upload_file_to_minio(bom_data_path, f"{unique_dir}/output/bom_data.json")
         upload_file_to_minio(signed_bom_data_path, f"{unique_dir}/output/bom_data.sig")
-        
-        serialize_bom(cyclonedx_bom, cyclonedx_bom_path)
         upload_file_to_minio(cyclonedx_bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
         
+        logging.info("Task completed successfully.")
         result = {
             "training_status": "training job completed",
             "unique_dir": unique_dir,
@@ -183,7 +260,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
             "output_artifacts": [
                 "trained_model.keras",
                 "metrics.json",
-                "logs.txt",
+                "application_logs.log",
                 "bom_data.json",
                 "bom_data.sig",
                 "cyclonedx_bom.json",
@@ -191,37 +268,41 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url):
         }
         return result    
     except Exception as e:
-        # Save error logs
-        error_logs_dir = os.path.join("/tmp", unique_dir)
-        os.makedirs(error_logs_dir, exist_ok=True)
-        error_logs_path = os.path.join(error_logs_dir, "error_logs.txt")
-        with open(error_logs_path, "w") as f:
-            f.write(f"An error occurred: {str(e)}\n")
-        
-        # Upload error logs to MinIO
-        upload_file_to_minio(error_logs_path, f"{unique_dir}/error/error_logs.txt")
-        
+        logging.error(f"An error occurred: {str(e)}")
         return {
             "training_status": "training job failed",
             "unique_dir": unique_dir,
-            "error": str(e)
+            "error": str(e),
         }
     finally:
-        print(f"Task {celery_app.current_task.request.id} completed.")
+        logging.info(f"Task {celery_app.current_task.request.id} completed.")
+        logging.shutdown()  # Flush all logs to the file
+
+        # Verify the logs file before uploading
+        if os.path.exists(logs_path):
+            file_size = os.path.getsize(logs_path)
+            if file_size > 0:
+                logging.info(f"Uploading application_logs to MinIO. Size: {file_size} bytes")
+                upload_file_to_minio(logs_path, f"{unique_dir}/output/application_logs.log")
+            else:
+                logging.error("application_logs.log is empty. Skipping upload.")
+        else:
+            logging.error("application_logs.log does not exist. Skipping upload.")
+
                 
 
         # model.fit(
         #     x=None, # data (could be: numpy array, tensor, dict mapping, tf.data.Dataset, keras.utils.PyDataset)
-        #     y=None, # label (could be: numpy array, (if x is dataset,generator or pydataset, y should not be specified))
-        #     batch_size=None, # Number of samples per gradient update, default 32 (if x is dataset,generator or pydataset, batch_size should not be specified)
+        #       y=None, # label (could be: numpy array, (if x is dataset,generator or pydataset, y should not be specified))
+        #       batch_size=None, # Number of samples per gradient update, default 32 (if x is dataset,generator or pydataset, batch_size should not be specified)
         #     epochs=1, # Number of epochs to train
         #     verbose='auto', # 0: silent, 1: progress bar, 2: one line per epoch (when writing to file)
-        #     callbacks=None, # (tensorboard)
-        #     validation_split=0.0, # Fraction of train data used to validate (if x is dataset,generator or pydataset, validation_split should not be specified)
+        #       callbacks=None, # (tensorboard)
+        #       validation_split=0.0, # Fraction of train data used to validate (if x is dataset,generator or pydataset, validation_split should not be specified)
         #     validation_data=None, # data to val (could be: numpy array, tensor, dict mapping, tf.data.Dataset, keras.utils.PyDataset)
-        #     shuffle=True, # shuffle x after each epoch (if x is dataset,generator or pydataset, shuffle should not be specified)
+        #       shuffle=True, # shuffle x after each epoch (if x is dataset,generator or pydataset, shuffle should not be specified)
         #     class_weight=None, # Optional dictionary mapping class indices (integers) to a weight (float) value, used for weighting the loss function (during training only). This can be useful to tell the model to "pay more attention" to samples from an under-represented class.
-        #     sample_weight=None, # Optional NumPy array of weights for the training samples, used for weighting the loss function (during training only). Y
+        #       sample_weight=None, # Optional NumPy array of weights for the training samples, used for weighting the loss function (during training only). Y
         #     initial_epoch=0, # Epoch at which to start training (useful for resuming a previous training run).
         #     steps_per_epoch=None, # Total number of steps (batches of samples) before declaring one epoch finished and starting the next epoch. Epoch at which to start training (useful for resuming a previous training run).
         #     validation_steps=None, # Only relevant if validation_data is provided. Total number of steps (batches of samples) to draw before stopping when performing validation at the end of every epoch.
@@ -236,58 +317,81 @@ def load_csv_dataset_with_definition(file_path, dataset_definition, batch_size=3
     """
     Load and preprocess a CSV dataset based on the dataset definition.
     """
+    logging.info(f"Loading CSV dataset from: {file_path}")
+    
     # Load the CSV file into a Pandas DataFrame
     df = pd.read_csv(file_path)
+    logging.info(f"CSV file loaded successfully. Number of rows: {len(df)}")
 
     # Validate that all required columns are present
     required_columns = list(dataset_definition["columns"].keys())
-    if not all(col in df.columns for col in required_columns):
-        raise ValueError(f"CSV file is missing required columns: {set(required_columns) - set(df.columns)}")
+    missing_columns = set(required_columns) - set(df.columns)
+    if missing_columns:
+        logging.error(f"CSV file is missing required columns: {missing_columns}")
+        raise ValueError(f"CSV file is missing required columns: {missing_columns}")
+    logging.info("All required columns are present in the CSV file.")
 
     # Extract features and labels
     feature_columns = [col for col in dataset_definition["columns"].keys() if col != dataset_definition["label"]]
     label_column = dataset_definition["label"]
+    logging.info(f"Feature columns: {feature_columns}")
+    logging.info(f"Label column: {label_column}")
 
     features = df[feature_columns].astype("float32").values
     labels = df[label_column].astype("int64").values
+    logging.info(f"Extracted features and labels. Number of features: {len(features[0])}, Number of labels: {len(labels)}")
 
     # Apply preprocessing if specified
     if "preprocessing" in dataset_definition:
+        logging.info("Applying preprocessing steps to features.")
         features = apply_preprocessing(features, dataset_definition["preprocessing"])
+        logging.info("Preprocessing completed.")
 
     # Convert to TensorFlow Dataset
+    logging.info("Converting data to TensorFlow Dataset.")
     dataset = tf.data.Dataset.from_tensor_slices((features, labels))
-    return dataset.batch(batch_size).shuffle(buffer_size=1000)
+    dataset = dataset.batch(batch_size).shuffle(buffer_size=1000)
+    logging.info(f"Dataset created successfully with batch size: {batch_size}")
 
-
-
-
+    return dataset
 
 
 def load_image_dataset(dataset_path, dataset_definition, batch_size=32):
     """
     Load and preprocess an image dataset.
     """
-    # Unzip the dataset if it is a .zip file
-    if dataset_path.endswith(".zip"):
-        extracted_path = dataset_path.replace(".zip", "")
-        shutil.unpack_archive(dataset_path, extracted_path)
-        dataset_path = extracted_path
+    logging.info(f"Loading image dataset from: {dataset_path}")
 
     # Load the dataset
     image_size = tuple(dataset_definition.get("image_size", [224, 224]))
+    logging.info(f"Using image size: {image_size}")
     preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
 
-    dataset = tf.keras.preprocessing.image_dataset_from_directory(
-        dataset_path,
-        image_size=image_size,
-        batch_size=batch_size
-    )
+    try:
+        logging.info("Loading images from directory...")
+        dataset = tf.keras.preprocessing.image_dataset_from_directory(
+            dataset_path,
+            image_size=image_size,
+            batch_size=batch_size
+        )
+        logging.info("Image dataset loaded successfully.")
+    except Exception as e:
+        logging.error(f"Failed to load image dataset: {str(e)}")
+        raise
 
     # Apply preprocessing if specified
     if "preprocessing" in dataset_definition:
-        dataset = dataset.map(lambda x, y: (preprocessing_function(x), y))
+        logging.info("Applying preprocessing steps to the dataset.")
+        try:
+            dataset = dataset.map(lambda x, y: (preprocessing_function(x), y))
+            logging.info("Preprocessing applied successfully.")
+        except Exception as e:
+            logging.error(f"Failed to apply preprocessing: {str(e)}")
+            raise
+    else:
+        logging.info("No preprocessing steps specified in the dataset definition.")
 
+    logging.info(f"Dataset creation completed with batch size: {batch_size}")
     return dataset
                 
 
@@ -372,13 +476,16 @@ def apply_preprocessing(features, preprocessing_steps):
     Supports normalization, scaling, and other transformations.
     """
     if preprocessing_steps.get("normalize", False):
+        logging.info("Normalizing features...")
         features = tf.math.l2_normalize(features, axis=-1)
 
     if "scale" in preprocessing_steps:
+        logging.info("Scaling features...")
         scale = preprocessing_steps["scale"]
         features = features * scale
 
     if "clip" in preprocessing_steps:
+        logging.info("Clipping features...")
         min_val, max_val = preprocessing_steps["clip"]
         features = tf.clip_by_value(features, min_val, max_val)
 

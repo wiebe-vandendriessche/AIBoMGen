@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Request  # Import Request
+from typing import Literal, Optional
+from fastapi import FastAPI, Form, HTTPException, File, Query, UploadFile, Request  # Import Request
 from fastapi.responses import FileResponse, RedirectResponse
 from celery.result import AsyncResult
 from celery import Celery
@@ -34,13 +35,74 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
 @app.post("/submit_job_by_model_and_data")
-@limiter.limit("1/minute")  # Limit to 1 requests per minute
+@limiter.limit("5/minute")  # Limit to 5 requests per minute
 async def submit_job(
     request: Request,
-    model: UploadFile = File(...), 
-    dataset: UploadFile = File(...),
-    dataset_definition: UploadFile = File(...)
+    # File uploads
+    model: UploadFile = File(..., description="Model file to be trained (currently only .keras for tensorflow framework)."), 
+    dataset: UploadFile = File(..., description="Dataset file for training (currently only csv and .zip for image data)."),
+    dataset_definition: UploadFile = File(..., description="Dataset definition file (currently in YAML, see spec in project README)."),
+    
+    # Model metadata (moved to Form)
+    framework: Literal["TensorFlow 2.16.1"] = Form(..., description="Currently, only TensorFlow 2.16.1 is supported."),
+    model_name: Optional[str] = Form("", description="Name of the model."),
+    model_version: Optional[str] = Form("", description="Version of the model."),
+    model_description: Optional[str] = Form("", description="Description of the model."),
+    author: Optional[str] = Form("", description="Author of the model."),
+    model_type: Optional[str] = Form("", description="Type of the model (e.g., Image Classification)."),
+    base_model: Optional[str] = Form("", description="Base model used (e.g., ResNet50)."),
+    base_model_source: Optional[str] = Form("", description="Source URL of the base model."),
+    intended_use: Optional[str] = Form("", description="Intended use of the model."),
+    out_of_scope: Optional[str] = Form("", description="Out-of-scope use cases."),
+    misuse_or_malicious: Optional[str] = Form("", description="Misuse or malicious use cases."),
+    license_name: Optional[str] = Form("", description="License name for the model."),
+    
+    # Training parameters for model.fit (moved to Form)
+    epochs: Optional[int] = Form(50, description="Number of epochs to train."),
+    validation_split: Optional[float] = Form(0.2, description="Fraction of data to use for validation."),
+    initial_epoch: Optional[int] = Form(0, description="Epoch at which to start training."),
+    batch_size: Optional[int] = Form(32, description="Size of the batches of data. Default is 32."),
+    steps_per_epoch: Optional[int] = Form(None, description="Total number of steps per epoch. If None or zero, it will be calculated with batch size."),
+    validation_steps: Optional[int] = Form(None, description="Number of steps for validation. If None or zero, it will be calculated with batch size."),
+    validation_freq: Optional[int] = Form(1, description="Specifies how many training epochs to run before a new validation run is performed. Default is 1 (every epoch)."),
 ):
+    """
+Submit a training job with model and dataset files, along with optional metadata and training parameters.
+
+Args:
+    
+    Files Uploads:
+        - model: The model file to be trained (currently only .keras for tensorflow framework).
+        - dataset: The dataset file for training (currently only csv and .zip for image data). 
+        - dataset_definition: The dataset definition file (currently in YAML, see spec in project README).
+        
+    Required Metadata:
+        - framework: Framework used (currently only TensorFlow 2.16.1 is supported).
+        
+    Model Metadata:
+        - model_name: Name of the model.
+        - model_version: Version of the model.
+        - model_description: Description of the model.
+        - author: Author of the model.
+        - model_type: Type of the model (e.g., Image Classification).
+        - base_model: Base model used (e.g., ResNet50).
+        - base_model_source: Source URL of the base model.
+        - intended_use: Intended use of the model.
+        - out_of_scope: Out-of-scope use cases.
+        - misuse_or_malicious: Misuse or malicious use cases.
+        - license_name: License name for the model.
+        
+    Training Parameters (optional):
+        - epochs: Number of epochs to train.
+        - validation_split: Fraction of data to use for validation.
+        - initial_epoch: Epoch at which to start training.
+        - batch_size: Size of the batches of data.
+        - steps_per_epoch: Total number of steps per epoch.
+        - validation_steps: Number of steps for validation.
+        - validation_freq: Frequency of validation runs.
+        
+      
+"""
     try:
         # Generate a unique directory for the job
         unique_dir = str(uuid.uuid4())
@@ -77,11 +139,36 @@ async def submit_job(
         model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
         dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}")
         dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}")
-
+        
         # Send Celery task with file URLs
         task = celery_app.send_task(
             'tasks.run_training',
-            args=[unique_dir, model_url, dataset_url, dataset_definition_url]
+            args=[
+                unique_dir, model_url, dataset_url, dataset_definition_url,
+                {
+                    "model_name": model_name,
+                    "model_version": model_version,
+                    "model_description": model_description,
+                    "author": author,
+                    "framework": framework,
+                    "model_type": model_type,
+                    "base_model": base_model,
+                    "base_model_source": base_model_source,
+                    "intended_use": intended_use,
+                    "out_of_scope": out_of_scope,
+                    "misuse_or_malicious": misuse_or_malicious,
+                    "license_name": license_name,
+                },
+                {
+                    "epochs": epochs,
+                    "validation_split": validation_split,
+                    "initial_epoch": initial_epoch,
+                    "batch_size": batch_size,
+                    "steps_per_epoch": steps_per_epoch,
+                    "validation_steps": validation_steps,
+                    "validation_freq": validation_freq,
+                }
+            ]
         )
         return {"job_id": task.id, "status": "Training started", "unique_dir": unique_dir}
 
