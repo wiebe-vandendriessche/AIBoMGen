@@ -3,6 +3,8 @@
 ## Overview
 AIBoMGen is a distributed system for training AI models with a focus on **trustability**, integrity, reproducibility, and artifact management. The system ensures that the training process is fully auditable and tamper-proof by generating an **AI Bill of Materials (AIBoM)**, which includes cryptographic attestations of the training environment, inputs, and outputs.
 
+![System Architecture](versionT3.drawio.png)
+
 Key features:
 - **Dataset Integrity Verification**: Hashing datasets and inputs to ensure consistency and prevent tampering.
 - **AIBoM Generation with Attestations**: Captures metadata, input/output hashes, and environment details, signed with a private key to ensure authenticity and trustability.
