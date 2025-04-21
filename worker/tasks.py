@@ -1,6 +1,5 @@
 from celery_config import celery_app
 import os
-import shutil
 import tensorflow as tf
 import time
 import yaml
@@ -12,68 +11,71 @@ from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
 
-
-# Create a custom logger for your application
-def get_application_logger(unique_dir):
-    logs_dir = os.path.join("/tmp", unique_dir)
-    os.makedirs(logs_dir, exist_ok=True)
-    logs_path = os.path.join(logs_dir, "application_logs.log")
-
-    logger = logging.getLogger(f"application_logger_{unique_dir}")
-    logger.setLevel(logging.INFO)
-
-    # Add a file handler
-    file_handler = logging.FileHandler(logs_path)
-    file_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-
-    # Avoid adding duplicate handlers
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-
-    return logger, logs_path
-
 @celery_app.task(name="tasks.run_training", time_limit=3600)
 def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, optional_params=None, fit_params=None):
     """Training task with support for tabular and image data."""
-    logger, logs_path = get_application_logger(unique_dir)
-    logger.info("Starting the training task.")
     
     # Create a temporary directory
     temp_dir = os.path.join("/tmp", unique_dir)
     os.makedirs(temp_dir, exist_ok=True)
-
-    logging.info("Logging system initialized successfully.")
+    
+    # Define a unique log file for this task
+    logs_path = os.path.join(temp_dir, "logs.log")
+    
+    # Create a logger for this task
+    task_logger = logging.getLogger(f"task_logger_{unique_dir}")
+    task_logger.setLevel(logging.INFO)
+    
+    # File handler for writing logs to a file
+    file_handler = logging.FileHandler(logs_path)
+    file_handler.setLevel(logging.INFO)
+    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(file_formatter)
+    
+    # Console handler for displaying logs in the terminal
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console_handler.setFormatter(console_formatter)
+    
+    # Add handlers to the logger
+    task_logger.addHandler(file_handler)
+    task_logger.addHandler(console_handler)
+    
+    # Avoid duplicate logs by disabling propagation to the root logger
+    task_logger.propagate = False
+    
+    task_logger.info("Starting training task...")
+    task_logger.info("Logging system initialized successfully.")
     
     try:
            
         # Confirm GPU availability
         gpus = tf.config.list_physical_devices('GPU')
         if not gpus:
-            logging.warning("No GPU devices found!")
+            task_logger.warning("No GPU devices found!")
         else:
-            logging.info(f"GPUs available: {[gpu.name for gpu in gpus]}")
+            task_logger.info(f"GPUs available: {[gpu.name for gpu in gpus]}")
 
         cpus = tf.config.list_physical_devices('CPU')
         if not cpus:
-            logging.warning("No CPU devices found!")
+            task_logger.warning("No CPU devices found!")
         else:
-            logging.info(f"CPUs available: {[cpu.name for cpu in cpus]}")
+            task_logger.info(f"CPUs available: {[cpu.name for cpu in cpus]}")
        
         # Device selection
         if len(gpus) > 0 and len(cpus) > 0:
-            logging.info("Both GPU and CPU devices are available. Using GPU for training.")
+            task_logger.info("Both GPU and CPU devices are available. Using GPU for training.")
             tf.config.set_visible_devices(gpus[0], 'GPU')
         elif len(cpus) > 0:
-            logging.info("Only CPU devices are available. Using CPU for training.")
+            task_logger.info("Only CPU devices are available. Using CPU for training.")
             tf.config.set_visible_devices(cpus[0], 'CPU')
         else:
             raise RuntimeError("No available devices for training.")
 
         start_task_time = time.time()
         start_task_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_task_time))
-        logging.info(f"Task started at UTC: {start_task_time_utc}")
+        task_logger.info(f"Task started at UTC: {start_task_time_utc}")
 
         # Define paths for downloaded files
         model_dir = os.path.join(temp_dir, "model")
@@ -95,21 +97,21 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         dataset_definition_path = os.path.join(dataset_definition_dir, dataset_definition_filename)
 
         # Download files from MinIO
-        logging.info("Downloading files from MinIO...")
+        task_logger.info("Downloading files from MinIO...")
         download_file_from_minio(f"{unique_dir}/model/{model_filename}", model_path)
         download_file_from_minio(f"{unique_dir}/dataset/{dataset_filename}", dataset_path)
         download_file_from_minio(f"{unique_dir}/definition/{dataset_definition_filename}", dataset_definition_path)
 
         # Load dataset definition
-        logging.info("Loading dataset definition...")
+        task_logger.info("Loading dataset definition...")
         with open(dataset_definition_path, "r") as f:
             dataset_definition = yaml.safe_load(f)
 
         # Load dataset based on type
         dataset_type = dataset_definition.get("type", "csv")
-        logging.info(f"Dataset type: {dataset_type}")
+        task_logger.info(f"Dataset type: {dataset_type}")
         if dataset_type == "csv":
-            dataset = load_csv_dataset_with_definition(dataset_path, dataset_definition)
+            dataset = load_csv_dataset_with_definition(task_logger, dataset_path, dataset_definition)
         elif dataset_type == "image":
             # Validate and extract the dataset .zip file
             dataset_zip_path = dataset_path
@@ -118,12 +120,12 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             dataset_extracted_path = os.path.join(temp_dir, "dataset_unzipped")
             os.makedirs(dataset_extracted_path, exist_ok=True)
             try:
-                logging.info("Validating and extracting dataset zip file...")
+                task_logger.info("Validating and extracting dataset zip file...")
                 # Validate and extract the zip file
                 validate_and_extract_zip(dataset_zip_path, dataset_extracted_path)
-                logging.info("Dataset zip file extracted successfully.")
+                task_logger.info("Dataset zip file extracted successfully.")
                 # Load the dataset from the extracted path
-                dataset = load_image_dataset(dataset_extracted_path, dataset_definition)
+                dataset = load_image_dataset(task_logger, dataset_extracted_path, dataset_definition)
 
             except ZipValidationError as e:
                 raise Exception(f"Dataset validation failed: {str(e)}")
@@ -134,23 +136,23 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
         # Load model
-        logging.info("Loading model...")
+        task_logger.info("Loading model...")
         model = tf.keras.models.load_model(model_path)
 
         # Validate compatibility
-        logging.info("Validating model and dataset compatibility...")
+        task_logger.info("Validating model and dataset compatibility...")
         validate_model_and_dataset_definition(model, dataset_definition)
 
         # Training start
         start_training_time = time.time()
         start_training_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_training_time))
-        logging.info(f"Training started at UTC: {start_training_time_utc}")
+        task_logger.info(f"Training started at UTC: {start_training_time_utc}")
         
 
         # Split the dataset into training and validation subsets
         validation_split = fit_params.get("validation_split", 0.2)  # Default to 20% validation
         if isinstance(dataset, tf.data.Dataset) and validation_split > 0.0:
-            logging.info("Splitting dataset into training and validation subsets...")
+            task_logger.info("Splitting dataset into training and validation subsets...")
             # Calculate the number of samples in the dataset
             dataset_size = sum(1 for _ in dataset)
             val_size = int(validation_split * dataset_size)
@@ -164,7 +166,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             val_dataset = None
         
         # Train the model using fit_params
-        logging.info("Starting model training...")
+        task_logger.info("Starting model training...")
         model.fit(
             x=train_dataset,
             validation_data=val_dataset,  # Use the validation dataset if available
@@ -175,7 +177,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             validation_steps=fit_params.get("validation_steps", val_size // fit_params.get("batch_size", 32)) if val_dataset else None,
             validation_freq=fit_params.get("validation_freq", 1),
         )
-        logging.info("Model training completed.")
+        task_logger.info("Model training completed.")
         
         # Define paths for output artifacts
         trained_model_path = os.path.join(temp_dir, "trained_model.keras")
@@ -184,19 +186,19 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         signed_bom_data_path = os.path.join(temp_dir, "bom_data.sig")
  
         # Save the trained model
-        logging.info("Saving trained model...")
+        task_logger.info("Saving trained model...")
         model.save(trained_model_path)
         
         # Save training metrics
-        logging.info("Saving training metrics...")
+        task_logger.info("Saving training metrics...")
         with open(metrics_path, "w") as f:
             json.dump(model.history.history, f)
 
         # Generate and save the BOM data
         start_aibom_time = time.time()
         start_aibom_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_aibom_time))
-        logging.info(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
-        logging.info("Generating BOM data...")
+        task_logger.info(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
+        task_logger.info("Generating BOM data...")
         # Define input files
         input_files = {
             "model_path": model_path,
@@ -223,13 +225,13 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         
         # Generate BOM data
         bom_data = generate_basic_bom_data(input_files, output_files, fit_params, environment, optional_params)
-        logging.info("BOM data generated successfully.")
-        logging.info(f"Signing BOM data...")
+        task_logger.info("BOM data generated successfully.")
+        task_logger.info(f"Signing BOM data...")
         # Sign the BOM data
         signed_bom_data = sign_basic_bom_data(bom_data, "private_key.pem")
-        logging.info("BOM data signed successfully.")
+        task_logger.info("BOM data signed successfully.")
         
-        logging.info("Saving BOM data and signature...")
+        task_logger.info("Saving BOM data and signature...")
         # Save BOM data and signature
         with open(bom_data_path, "w") as f:
             json.dump(bom_data, f, indent=4)
@@ -237,21 +239,21 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         with open(signed_bom_data_path, "wb") as f:  # Open in binary mode
             f.write(signed_bom_data)
         
-        logging.info("Transforming BOM data to CycloneDX format...")
+        task_logger.info("Transforming BOM data to CycloneDX format...")
         cyclonedx_bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")            
         # Transform to CycloneDX BOM
         cyclonedx_bom = transform_to_cyclonedx(bom_data)
         serialize_bom(cyclonedx_bom, cyclonedx_bom_path)
 
         # Upload output artifacts to MinIO
-        logging.info("Uploading artifacts to MinIO...")
+        task_logger.info("Uploading artifacts to MinIO...")
         upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
         upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
         upload_file_to_minio(bom_data_path, f"{unique_dir}/output/bom_data.json")
         upload_file_to_minio(signed_bom_data_path, f"{unique_dir}/output/bom_data.sig")
         upload_file_to_minio(cyclonedx_bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
         
-        logging.info("Task completed successfully.")
+        task_logger.info("Task completed successfully.")
         result = {
             "training_status": "training job completed",
             "unique_dir": unique_dir,
@@ -260,7 +262,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             "output_artifacts": [
                 "trained_model.keras",
                 "metrics.json",
-                "application_logs.log",
+                "logs.log",
                 "bom_data.json",
                 "bom_data.sig",
                 "cyclonedx_bom.json",
@@ -268,26 +270,29 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         }
         return result    
     except Exception as e:
-        logging.error(f"An error occurred: {str(e)}")
+        task_logger.error(f"An error occurred: {str(e)}")
         return {
             "training_status": "training job failed",
             "unique_dir": unique_dir,
             "error": str(e),
         }
     finally:
-        logging.info(f"Task {celery_app.current_task.request.id} completed.")
-        logging.shutdown()  # Flush all logs to the file
-
+        task_logger.info(f"Task {celery_app.current_task.request.id} completed.")
+        
         # Verify the logs file before uploading
         if os.path.exists(logs_path):
             file_size = os.path.getsize(logs_path)
             if file_size > 0:
-                logging.info(f"Uploading application_logs to MinIO. Size: {file_size} bytes")
-                upload_file_to_minio(logs_path, f"{unique_dir}/output/application_logs.log")
+                task_logger.info(f"Uploading application_logs to MinIO. Size: {file_size} bytes")
+                upload_file_to_minio(logs_path, f"{unique_dir}/output/logs.log")
             else:
-                logging.error("application_logs.log is empty. Skipping upload.")
+                task_logger.error("logs.log is empty. Skipping upload.")
         else:
-            logging.error("application_logs.log does not exist. Skipping upload.")
+            task_logger.error("logs.log does not exist. Skipping upload.")
+        
+        # Remove handlers to avoid memory leaks
+        task_logger.removeHandler(file_handler)
+        task_logger.removeHandler(console_handler)
 
                 
 
@@ -313,85 +318,85 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
 
 
 
-def load_csv_dataset_with_definition(file_path, dataset_definition, batch_size=32):
+def load_csv_dataset_with_definition(task_logger, file_path, dataset_definition, batch_size=32):
     """
     Load and preprocess a CSV dataset based on the dataset definition.
     """
-    logging.info(f"Loading CSV dataset from: {file_path}")
+    task_logger.info(f"Loading CSV dataset from: {file_path}")
     
     # Load the CSV file into a Pandas DataFrame
     df = pd.read_csv(file_path)
-    logging.info(f"CSV file loaded successfully. Number of rows: {len(df)}")
+    task_logger.info(f"CSV file loaded successfully. Number of rows: {len(df)}")
 
     # Validate that all required columns are present
     required_columns = list(dataset_definition["columns"].keys())
     missing_columns = set(required_columns) - set(df.columns)
     if missing_columns:
-        logging.error(f"CSV file is missing required columns: {missing_columns}")
+        task_logger.error(f"CSV file is missing required columns: {missing_columns}")
         raise ValueError(f"CSV file is missing required columns: {missing_columns}")
-    logging.info("All required columns are present in the CSV file.")
+    task_logger.info("All required columns are present in the CSV file.")
 
     # Extract features and labels
     feature_columns = [col for col in dataset_definition["columns"].keys() if col != dataset_definition["label"]]
     label_column = dataset_definition["label"]
-    logging.info(f"Feature columns: {feature_columns}")
-    logging.info(f"Label column: {label_column}")
+    task_logger.info(f"Feature columns: {feature_columns}")
+    task_logger.info(f"Label column: {label_column}")
 
     features = df[feature_columns].astype("float32").values
     labels = df[label_column].astype("int64").values
-    logging.info(f"Extracted features and labels. Number of features: {len(features[0])}, Number of labels: {len(labels)}")
+    task_logger.info(f"Extracted features and labels. Number of features: {len(features[0])}, Number of labels: {len(labels)}")
 
     # Apply preprocessing if specified
     if "preprocessing" in dataset_definition:
-        logging.info("Applying preprocessing steps to features.")
-        features = apply_preprocessing(features, dataset_definition["preprocessing"])
-        logging.info("Preprocessing completed.")
+        task_logger.info("Applying preprocessing steps to features.")
+        features = apply_preprocessing(features, dataset_definition["preprocessing"], task_logger)
+        task_logger.info("Preprocessing completed.")
 
     # Convert to TensorFlow Dataset
-    logging.info("Converting data to TensorFlow Dataset.")
+    task_logger.info("Converting data to TensorFlow Dataset.")
     dataset = tf.data.Dataset.from_tensor_slices((features, labels))
     dataset = dataset.batch(batch_size).shuffle(buffer_size=1000)
-    logging.info(f"Dataset created successfully with batch size: {batch_size}")
+    task_logger.info(f"Dataset created successfully with batch size: {batch_size}")
 
     return dataset
 
 
-def load_image_dataset(dataset_path, dataset_definition, batch_size=32):
+def load_image_dataset(task_logger, dataset_path, dataset_definition, batch_size=32):
     """
     Load and preprocess an image dataset.
     """
-    logging.info(f"Loading image dataset from: {dataset_path}")
+    task_logger.info(f"Loading image dataset from: {dataset_path}")
 
     # Load the dataset
     image_size = tuple(dataset_definition.get("image_size", [224, 224]))
-    logging.info(f"Using image size: {image_size}")
+    task_logger.info(f"Using image size: {image_size}")
     preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
 
     try:
-        logging.info("Loading images from directory...")
+        task_logger.info("Loading images from directory...")
         dataset = tf.keras.preprocessing.image_dataset_from_directory(
             dataset_path,
             image_size=image_size,
             batch_size=batch_size
         )
-        logging.info("Image dataset loaded successfully.")
+        task_logger.info("Image dataset loaded successfully.")
     except Exception as e:
-        logging.error(f"Failed to load image dataset: {str(e)}")
+        task_logger.error(f"Failed to load image dataset: {str(e)}")
         raise
 
     # Apply preprocessing if specified
     if "preprocessing" in dataset_definition:
-        logging.info("Applying preprocessing steps to the dataset.")
+        task_logger.info("Applying preprocessing steps to the dataset.")
         try:
             dataset = dataset.map(lambda x, y: (preprocessing_function(x), y))
-            logging.info("Preprocessing applied successfully.")
+            task_logger.info("Preprocessing applied successfully.")
         except Exception as e:
-            logging.error(f"Failed to apply preprocessing: {str(e)}")
+            task_logger.error(f"Failed to apply preprocessing: {str(e)}")
             raise
     else:
-        logging.info("No preprocessing steps specified in the dataset definition.")
+        task_logger.info("No preprocessing steps specified in the dataset definition.")
 
-    logging.info(f"Dataset creation completed with batch size: {batch_size}")
+    task_logger.info(f"Dataset creation completed with batch size: {batch_size}")
     return dataset
                 
 
@@ -418,7 +423,7 @@ def load_tfrecord_demo(file_path, batch_size=32):
 
     return dataset
 
-def load_TFRecordDataset_with_definition(file_path, dataset_definition, batch_size=32):
+def load_TFRecordDataset_with_definition(task_logger, file_path, dataset_definition, batch_size=32):
     """
     Load and preprocess the dataset based on the dataset definition.
     Dynamically handles feature shapes and preprocessing steps.
@@ -452,7 +457,7 @@ def load_TFRecordDataset_with_definition(file_path, dataset_definition, batch_si
 
         # Apply optional preprocessing if specified
         if "preprocessing" in dataset_definition:
-            features = apply_preprocessing(features, dataset_definition["preprocessing"])
+            features = apply_preprocessing(features, dataset_definition["preprocessing"], task_logger)
 
         return features, label
 
@@ -470,22 +475,22 @@ def validate_model_and_dataset_definition(model, dataset_definition):
     if output_shape != tuple(dataset_definition["output_shape"]):
         raise ValueError(f"Model output shape {output_shape} does not match dataset output shape {dataset_definition['output_shape']}")
     
-def apply_preprocessing(features, preprocessing_steps):
+def apply_preprocessing(features, preprocessing_steps, task_logger):
     """
     Apply preprocessing steps to the features.
     Supports normalization, scaling, and other transformations.
     """
     if preprocessing_steps.get("normalize", False):
-        logging.info("Normalizing features...")
+        task_logger.info("Normalizing features...")
         features = tf.math.l2_normalize(features, axis=-1)
 
     if "scale" in preprocessing_steps:
-        logging.info("Scaling features...")
+        task_logger.info("Scaling features...")
         scale = preprocessing_steps["scale"]
         features = features * scale
 
     if "clip" in preprocessing_steps:
-        logging.info("Clipping features...")
+        task_logger.info("Clipping features...")
         min_val, max_val = preprocessing_steps["clip"]
         features = tf.clip_by_value(features, min_val, max_val)
 
