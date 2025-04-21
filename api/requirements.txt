@@ -6,3 +6,5 @@ requests
 python-multipart
 python-dotenv
 boto3
+PyYAML
+slowapi

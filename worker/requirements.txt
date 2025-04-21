@@ -1,10 +1,9 @@
 celery
-redis
 flower
 python-dotenv
-tensorflow
 PyYAML
 pandas
 cryptography
 cyclonedx-python-lib
 boto3
+cffi

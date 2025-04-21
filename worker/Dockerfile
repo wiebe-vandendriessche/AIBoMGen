@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM tensorflow/tensorflow:2.16.1-gpu
 
 WORKDIR /app
 

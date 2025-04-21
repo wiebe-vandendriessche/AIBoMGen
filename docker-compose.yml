@@ -10,7 +10,9 @@ services:
       RABBITMQ_DEFAULT_PASS: $RABBITMQ_PASSWORD
     env_file:
       - .env
-
+    networks:
+      - internal_network
+      
   minio:
     image: minio/minio
     container_name: minio
@@ -25,6 +27,8 @@ services:
       - minio_data:/data
     env_file:
       - .env
+    networks:
+      - internal_network
 
   api:
     build:
@@ -37,20 +41,36 @@ services:
       - rabbitmq
     env_file:
       - .env
-
+    networks:
+      - internal_network
 
   worker:
     build:
       context: .
       dockerfile: ./worker/Dockerfile
-    mem_limit: 4g
     depends_on:
       - rabbitmq
     env_file:
       - .env
     deploy:
       replicas: 3  # Define 3 replicas for the worker to demonstrate scalability
-
+      resources:
+        limits:
+          memory: 4g  # Increase memory limit to 4GB
+          cpus: "2.0"  # Allow up to 2 CPU cores
+        reservations:
+          memory: 2g  # Reserve 2GB of memory
+          cpus: "1.0"  # Reserve 1 CPU core
+    runtime: nvidia  # Ensure this is present (if using your laptop GPU, safest to only use one worker)
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    networks:
+      - internal_network
 
   flower:
     build:
@@ -66,6 +86,12 @@ services:
       - worker
     env_file:
       - .env
+    networks:
+      - internal_network
+
+networks:
+  internal_network:
+    driver: bridge
 
 volumes:
   minio_data:
