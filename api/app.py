@@ -332,7 +332,7 @@ async def job_status(job_id: str, user: User = Depends(azure_scheme), db: Sessio
 
     celery_task = AsyncResult(job_id, app=celery_app)
     if not celery_task:
-        raise HTTPException(status_code=404, detail="Job not found (celery task).")
+        raise HTTPException(status_code=404, detail="Job not found.")
     return {"status": celery_task.status, "result": celery_task.result}
 
 @app.get("/job_artifacts/{job_id}", dependencies=[Security(azure_scheme)])
