@@ -1,43 +1,175 @@
-from typing import Literal, Optional
-from fastapi import FastAPI, Form, HTTPException, File, Query, UploadFile, Request  # Import Request
-from fastapi.responses import FileResponse, RedirectResponse
-from celery.result import AsyncResult
-from celery import Celery
-from dotenv import load_dotenv
+# === Standard Library Imports ===
 import os
 import shutil
 import uuid
-from shared.minio_utils import upload_file_to_minio, create_bucket_if_not_exists, list_files_in_bucket, generate_presigned_url
-from shared.zip_utils import ZipValidationError, validate_zip_file
 from contextlib import asynccontextmanager
-import yaml
+import time
+
+# === Third-Party Library Imports ===
+from celery import Celery
+from celery.result import AsyncResult
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Security,
+    UploadFile,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi_azure_auth import MultiTenantAzureAuthorizationCodeBearer
+from fastapi_azure_auth.user import User
+from pydantic import AnyHttpUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
+from typing import Annotated, Literal, Optional
+import logging
+import yaml
 
-load_dotenv()
+# === Local Imports ===
+from shared.minio_utils import (
+    upload_file_to_minio,
+    create_bucket_if_not_exists,
+    list_files_in_bucket,
+    generate_presigned_url,
+)
+from shared.zip_utils import ZipValidationError, validate_zip_file
+from models import Job
+import models
+from database import SessionLocal, engine
 
-# Create a Celery instance in the FastAPI app to send tasks
+
+# === Load Environment Variables ===
+logger = logging.getLogger(__name__)
+
+# === Azure Auth Settings Configuration ===
+class Settings(BaseSettings):
+    BACKEND_CORS_ORIGINGS: list[str | AnyHttpUrl] = ["http://localhost:8000"]
+    OPENAPI_CLIENT_ID: str = ""
+    APP_CLIENT_ID: str = ""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
+
+settings = Settings()
+    
+# === Celery Configuration ===
 celery_app = Celery(
     "aibomgen_worker",
     broker=os.getenv("CELERY_BROKER_URL"),
     backend=os.getenv("CELERY_RESULT_BACKEND"),
 )
 
+# === Authentication Setup ===
+azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
+    app_client_id=settings.APP_CLIENT_ID,
+    scopes={
+        f'api://{settings.APP_CLIENT_ID}/user_impersonation': 'user_impersonation',
+    },
+    validate_iss=False,
+)
+
+# === Database Initialization ===
+def get_db():
+    """
+    Dependency to provide a synchronous database session.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
+db_dependency = Annotated[Session, Depends(get_db)] 
+
+# === FastAPI Application Setup ===
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load OpenID config immediately
+    await azure_scheme.openid_config.load_config()
+
     # Ensure the bucket exists when the API starts
     create_bucket_if_not_exists()
+    
+    # Call the retry mechanism during app startup
+    initialize_database_with_retry()
+    
     yield
 
-app = FastAPI(lifespan=lifespan)
 
+# Create FastAPI app with lifespan and Swagger UI oauth configuration
+app = FastAPI(
+    lifespan=lifespan,
+    swagger_ui_oauth2_redirect_url='/oauth2-redirect',
+    swagger_ui_init_oauth={
+        'usePkceWithAuthorizationCodeGrant': True,
+        'clientId': settings.OPENAPI_CLIENT_ID,
+    },
+)
+
+# === Database Initialization with Retry ===
+def initialize_database_with_retry(retries=60, delay=10):
+    """
+    Retry mechanism to wait for the database to become available.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            models.Base.metadata.create_all(bind=engine)  # Create tables if they don't exist
+            logger.info("Database initialized successfully.")
+            return
+        except OperationalError as e:
+            logger.warning(f"Attempt {attempt}/{retries}: Database connection failed: {e}. Retrying in {delay} seconds...")
+            time.sleep(delay)
+    logger.error("Failed to connect to the database after multiple attempts.")
+    raise RuntimeError("Database initialization failed.")
+
+
+
+# === Middleware Setup ===
+if settings.BACKEND_CORS_ORIGINGS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINGS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+
+# === Rate Limiting Setup from SlowAPI ===
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-@app.post("/submit_job_by_model_and_data")
+
+# === Database session dependency === #
+
+def get_db():
+    """
+    Dependency to provide a synchronous database session.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.post("/submit_job_by_model_and_data", dependencies=[Security(azure_scheme)])
 @limiter.limit("5/minute")  # Limit to 5 requests per minute
 async def submit_job(
     request: Request,
+    user: User = Depends(azure_scheme),  # Use Depends to get the user object
+    db: Session = Depends(get_db),  # Inject the database session
     # File uploads
     model: UploadFile = File(..., description="Model file to be trained (currently only .keras for tensorflow framework)."), 
     dataset: UploadFile = File(..., description="Dataset file for training (currently only csv and .zip for image data)."),
@@ -103,6 +235,9 @@ Args:
         
       
 """
+    # Save the user ID from the Azure token
+    user_id = user.claims.get("oid")  # Get the user's Azure Object ID
+    
     try:
         # Generate a unique directory for the job
         unique_dir = str(uuid.uuid4())
@@ -170,77 +305,79 @@ Args:
                 }
             ]
         )
+        
+        # Store job metadata in the database
+        job = Job(
+            id=task.id,
+            user_id=user_id,
+            unique_dir=unique_dir,
+        )
+        db.add(job)
+        db.commit()
+        
         return {"job_id": task.id, "status": "Training started", "unique_dir": unique_dir}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
 
-@app.get("/job_status/{job_id}")
-async def job_status(job_id: str):
-    job = AsyncResult(job_id, app=celery_app)
+@app.get("/job_status/{job_id}", dependencies=[Security(azure_scheme)])
+async def job_status(job_id: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db)):
+    user_id = user.claims.get("oid")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return {"status": job.status, "result": job.result}
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to access this job.")
 
-@app.get("/job_artifacts/{job_id}")
-async def get_job_artifacts(job_id: str):
-    try:
-        # Retrieve the unique directory from the Celery task result
-        job = AsyncResult(job_id, app=celery_app)
-        if not job or not job.result:
-            raise HTTPException(status_code=404, detail="Job not found or not completed.")
-        unique_dir = job.result.get("unique_dir")
-        if not unique_dir:
-            raise HTTPException(status_code=404, detail="Unique directory not found.")
+    celery_task = AsyncResult(job_id, app=celery_app)
+    if not celery_task:
+        raise HTTPException(status_code=404, detail="Job not found (celery task).")
+    return {"status": celery_task.status, "result": celery_task.result}
 
-        # List all files in the job-specific directory in MinIO
-        artifacts = list_files_in_bucket(f"{unique_dir}/")
-        if not artifacts:
-            raise HTTPException(status_code=404, detail="No artifacts found for this job.")
-        return {"job_id": job_id, "artifacts": artifacts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve artifacts: {str(e)}")
+@app.get("/job_artifacts/{job_id}", dependencies=[Security(azure_scheme)])
+async def get_job_artifacts(job_id: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db)):
+    user_id = user.claims.get("oid")
 
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
-@app.get("/job_artifacts/{job_id}/{artifact_name}")
-async def download_artifact(job_id: str, artifact_name: str, redirect: bool = True, test_mode: bool = False):
-    """
-    Retrieve a presigned URL for downloading an artifact.
-    """
-    try:
-        # Retrieve the unique directory from the Celery task result
-        job = AsyncResult(job_id, app=celery_app)
-        if not job or not job.result:
-            raise HTTPException(status_code=404, detail="Job not found or not completed.")
-        unique_dir = job.result.get("unique_dir")
-        if not unique_dir:
-            raise HTTPException(status_code=404, detail="Unique directory not found.")
+    artifacts = list_files_in_bucket(f"{job.unique_dir}/")
+    if not artifacts:
+        raise HTTPException(status_code=404, detail="No artifacts found for this job.")
+    return {"job_id": job_id, "artifacts": artifacts}
 
-        # List all files in the unique directory
-        all_files = list_files_in_bucket(f"{unique_dir}/")
-        if not all_files:
-            raise HTTPException(status_code=404, detail="No files found for this job.")
+@app.get("/job_artifacts/{job_id}/{artifact_name}", dependencies=[Security(azure_scheme)])
+async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = False):
+    user_id = user.claims.get("oid")
 
-        # Search for the artifact in the directory structure
-        matching_files = [file for file in all_files if file.endswith(f"/{artifact_name}")]
-        if not matching_files:
-            raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' not found.")
-        if len(matching_files) > 1:
-            raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
-        # Generate a presigned URL for the matching artifact
-        object_name = matching_files[0]
-        presigned_url = generate_presigned_url(object_name)
-        
-        # Modify the presigned URL for testing purposes if test_mode is enabled
-        if test_mode:
-            presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
-        
-        if redirect:
-            # Redirect to the presigned URL for direct download
-            return RedirectResponse(url=presigned_url)
-        else:
-            # Return the presigned URL in JSON format
-            return {"artifact_name": artifact_name, "url": presigned_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
+    unique_dir = job.unique_dir
+    all_files = list_files_in_bucket(f"{unique_dir}/")
+    if not all_files:
+        raise HTTPException(status_code=404, detail="No files found for this job.")
+
+    matching_files = [file for file in all_files if file.endswith(f"/{artifact_name}")]
+    if not matching_files:
+        raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' not found.")
+    if len(matching_files) > 1:
+        raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
+
+    object_name = matching_files[0]
+    presigned_url = generate_presigned_url(object_name)
+
+    if test_mode:
+        presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
+
+    if redirect:
+        return RedirectResponse(url=presigned_url)
+    else:
+        return {"artifact_name": artifact_name, "url": presigned_url}

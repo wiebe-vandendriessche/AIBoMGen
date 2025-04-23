@@ -12,6 +12,28 @@ services:
       - .env
     networks:
       - internal_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    env_file:
+      - .env
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - internal_network
       
   minio:
     image: minio/minio
@@ -38,11 +60,17 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - rabbitmq
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      minio:
+        condition: service_started
     env_file:
       - .env
     networks:
       - internal_network
+    restart: always # Automatically restart the container if it stops (sometimes needed if mysql is slow to start)
 
   worker:
     build:
@@ -95,4 +123,6 @@ networks:
 
 volumes:
   minio_data:
+    driver: local
+  mysql_data:
     driver: local
