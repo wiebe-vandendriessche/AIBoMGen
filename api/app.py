@@ -69,14 +69,24 @@ celery_app = Celery(
     backend=os.getenv("CELERY_RESULT_BACKEND"),
 )
 
-# === Authentication Setup ===
-azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
-    app_client_id=settings.APP_CLIENT_ID,
-    scopes={
-        f'api://{settings.APP_CLIENT_ID}/user_impersonation': 'user_impersonation',
-    },
-    validate_iss=False,
-)
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
+
+if AUTH_ENABLED:
+    azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
+        app_client_id=settings.APP_CLIENT_ID,
+        scopes={
+            f'api://{settings.APP_CLIENT_ID}/user_impersonation': 'user_impersonation',
+        },
+        validate_iss=False,
+    )
+
+    def get_current_user(user: User = Depends(azure_scheme)):
+        return user
+else:
+    def get_current_user():
+        class DummyUser:
+            claims = {"oid": "anonymous"}
+        return DummyUser()
 
 # === Database Initialization ===
 def get_db():
@@ -94,8 +104,9 @@ db_dependency = Annotated[Session, Depends(get_db)]
 # === FastAPI Application Setup ===
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load OpenID config immediately
-    await azure_scheme.openid_config.load_config()
+    if AUTH_ENABLED:
+        # Load OpenID config immediately if authentication is enabled
+        await azure_scheme.openid_config.load_config()
 
     # Ensure the bucket exists when the API starts
     create_bucket_if_not_exists()
@@ -106,15 +117,20 @@ async def lifespan(app: FastAPI):
     yield
 
 
-# Create FastAPI app with lifespan and Swagger UI oauth configuration
-app = FastAPI(
-    lifespan=lifespan,
-    swagger_ui_oauth2_redirect_url='/oauth2-redirect',
-    swagger_ui_init_oauth={
-        'usePkceWithAuthorizationCodeGrant': True,
-        'clientId': settings.OPENAPI_CLIENT_ID,
-    },
-)
+# Create FastAPI app with lifespan and conditional Swagger UI oauth configuration
+if AUTH_ENABLED:
+    app = FastAPI(
+        lifespan=lifespan,
+        swagger_ui_oauth2_redirect_url='/oauth2-redirect',
+        swagger_ui_init_oauth={
+            'usePkceWithAuthorizationCodeGrant': True,
+            'clientId': settings.OPENAPI_CLIENT_ID,
+        },
+    )
+else:
+    app = FastAPI(
+        lifespan=lifespan,
+    )
 
 # === Database Initialization with Retry ===
 def initialize_database_with_retry(retries=60, delay=10):
@@ -164,11 +180,11 @@ def get_db():
         db.close()
 
 
-@app.post("/submit_job_by_model_and_data", dependencies=[Security(azure_scheme)])
+@app.post("/submit_job_by_model_and_data", dependencies=[Depends(get_current_user)])
 @limiter.limit("5/minute")  # Limit to 5 requests per minute
 async def submit_job(
     request: Request,
-    user: User = Depends(azure_scheme),  # Use Depends to get the user object
+    user: User = Depends(get_current_user),  # Use Depends to get the user object
     db: Session = Depends(get_db),  # Inject the database session
     # File uploads
     model: UploadFile = File(..., description="Model file to be trained (currently only .keras for tensorflow framework)."), 
@@ -320,8 +336,8 @@ Args:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
 
-@app.get("/job_status/{job_id}", dependencies=[Security(azure_scheme)])
-async def job_status(job_id: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db)):
+@app.get("/job_status/{job_id}", dependencies=[Depends(get_current_user)])
+async def job_status(job_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user_id = user.claims.get("oid")
 
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -335,8 +351,8 @@ async def job_status(job_id: str, user: User = Depends(azure_scheme), db: Sessio
         raise HTTPException(status_code=404, detail="Job not found.")
     return {"status": celery_task.status, "result": celery_task.result}
 
-@app.get("/job_artifacts/{job_id}", dependencies=[Security(azure_scheme)])
-async def get_job_artifacts(job_id: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db)):
+@app.get("/job_artifacts/{job_id}", dependencies=[Depends(get_current_user)])
+async def get_job_artifacts(job_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user_id = user.claims.get("oid")
 
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -350,8 +366,8 @@ async def get_job_artifacts(job_id: str, user: User = Depends(azure_scheme), db:
         raise HTTPException(status_code=404, detail="No artifacts found for this job.")
     return {"job_id": job_id, "artifacts": artifacts}
 
-@app.get("/job_artifacts/{job_id}/{artifact_name}", dependencies=[Security(azure_scheme)])
-async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(azure_scheme), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = False):
+@app.get("/job_artifacts/{job_id}/{artifact_name}", dependencies=[Depends(get_current_user)])
+async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(get_current_user), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = False):
     user_id = user.claims.get("oid")
 
     job = db.query(Job).filter(Job.id == job_id).first()
