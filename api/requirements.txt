@@ -11,4 +11,5 @@ slowapi
 fastapi-azure-auth
 sqlalchemy
 mysql-connector-python
+in-toto
 

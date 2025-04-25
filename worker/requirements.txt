@@ -7,3 +7,4 @@ cryptography
 cyclonedx-python-lib
 boto3
 cffi
+in-toto

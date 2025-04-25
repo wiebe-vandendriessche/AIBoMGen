@@ -10,6 +10,7 @@ from bom_data_generator import generate_basic_bom_data, sign_basic_bom_data
 from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
+from in_toto_helper import load_signer, generate_in_toto_link, record_artifact_as_dict
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
 def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, optional_params=None, fit_params=None):
@@ -193,6 +194,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         task_logger.info("Saving training metrics...")
         with open(metrics_path, "w") as f:
             json.dump(model.history.history, f)
+            
+        # AIBOM -------------------------------------------------------------------------
 
         # Generate and save the BOM data
         start_aibom_time = time.time()
@@ -253,6 +256,48 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         upload_file_to_minio(signed_bom_data_path, f"{unique_dir}/output/bom_data.sig")
         upload_file_to_minio(cyclonedx_bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
         
+        
+        # in-toto -----------------------------------------------------------------------
+        
+        # Load the persistent private key
+        private_key_path = "/app/worker_private_key.pem"
+        public_key_path = "/app/worker_public_key.json"
+        worker_signer = load_signer(private_key_path, public_key_path)
+        
+        # Define paths for the in-toto link file
+        link_file_path = os.path.join(temp_dir, "run_training.link")
+        
+        # Record input and output artifacts
+        materials = {
+            "model": record_artifact_as_dict(model_path),
+            "dataset": record_artifact_as_dict(dataset_path),
+            "dataset_definition": record_artifact_as_dict(dataset_definition_path),
+        }
+        products = {
+            "trained_model.keras": record_artifact_as_dict(trained_model_path),
+            "metrics.json": record_artifact_as_dict(metrics_path),
+            "bom_data.json": record_artifact_as_dict(bom_data_path),
+            "bom_data.sig": record_artifact_as_dict(signed_bom_data_path),
+            "cyclonedx_bom.json": record_artifact_as_dict(cyclonedx_bom_path),
+        }
+        
+        # Generate the in-toto link file
+        generate_in_toto_link(
+            task_name="run_training",
+            materials=materials,
+            products=products,
+            command=["python", "tasks.py", "run_training"],
+            signer=worker_signer,
+            link_file_path=link_file_path,
+            task_logger=task_logger,
+        )
+        
+        # Upload the in-toto link file to MinIO
+        task_logger.info("Uploading in-toto link file to MinIO...")
+        upload_file_to_minio(link_file_path, f"{unique_dir}/output/run_training.link")
+        task_logger.info("in-toto link file uploaded successfully.")
+        
+        
         task_logger.info("Task completed successfully.")
         result = {
             "training_status": "training job completed",
@@ -266,6 +311,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
                 "bom_data.json",
                 "bom_data.sig",
                 "cyclonedx_bom.json",
+                "run_training.link",
             ],
         }
         return result    

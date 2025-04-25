@@ -31,6 +31,8 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal, Optional
 import logging
 import yaml
+from in_toto.models.metadata import Metablock
+from in_toto.verifylib import in_toto_verify
 
 # === Local Imports ===
 from shared.minio_utils import (
@@ -397,3 +399,54 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
         return RedirectResponse(url=presigned_url)
     else:
         return {"artifact_name": artifact_name, "url": presigned_url}
+    
+    
+@app.post("/verify_in-toto_link")
+async def verify_in_toto(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.link)"),
+):
+    """
+    Verify the in-toto link file against the signed layout.
+
+    Args:
+        link_file: The in-toto link file.
+
+    Returns:
+        Verification result.
+    """
+    try:
+        # Define paths
+        temp_dir = "/tmp/verify"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Path to the signed layout file (assumed to be in the API directory)
+        layout_path = "/app/signed_layout.json"
+        
+        # Check if the signed layout file exists
+        if not os.path.exists(layout_path):
+            raise HTTPException(
+                status_code=500,
+                detail="The signed layout file does not exist. Please ensure it is available at '/app/signed_layout.json'.",
+            )
+
+        # Save the uploaded link file temporarily
+        link_path = os.path.join(temp_dir, link_file.filename)
+        with open(link_path, "wb") as f:
+            f.write(await link_file.read())
+
+        # Load the signed layout
+        layout_metadata = Metablock.load(layout_path)
+
+        # Verify the layout and link file
+        in_toto_verify(
+            metadata=layout_metadata,
+            layout_key_dict=layout_metadata.signed.keys,
+            link_dir_path=os.path.dirname(link_path),
+        )
+
+        return {"status": "success", "message": "Verification successful."}
+    
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
