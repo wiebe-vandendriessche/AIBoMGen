@@ -2,7 +2,7 @@
 .iml
 
 # own
-.pem
+*.pem
 .vscode
 layout.json
 signed_layout.json
