@@ -6,7 +6,7 @@ import json
 import hashlib
 import os
 
-def generate_in_toto_link(task_name, materials, products, command, signer, link_file_path, task_logger):
+def generate_in_toto_link(task_name, materials, products, command, signer, temp_dir, task_logger):
     """
     Generate and sign an in-toto link file for a task.
 
@@ -16,8 +16,10 @@ def generate_in_toto_link(task_name, materials, products, command, signer, link_
         products (dict): Output artifacts (e.g., trained model, metrics).
         command (list): Command executed for the task.
         signer (CryptoSigner): CryptoSigner object for signing the link.
-        link_file_path (str): Path to save the generated link file.
+        temp_dir (str): temp_directory to save the link file.
         task_logger (logging.Logger): Logger for logging messages.
+    Outputs:
+        str: Path to the generated in-toto link file.
     """
     try:
         # Create the in-toto link metadata
@@ -35,11 +37,15 @@ def generate_in_toto_link(task_name, materials, products, command, signer, link_
         link_metadata = Metablock(signed=link)
         link_metadata.create_signature(signer)
 
-        # Save the link metadata to a file
+        # Save the link metadata to a temp_dir
+        keyid = signer.public_key.keyid
+        keyid_prefix = keyid[:8]  # Use the first 8 characters of the keyid
+        link_file_path = os.path.join(temp_dir, f"{task_name}.{keyid_prefix}.link")
         task_logger.info(f"Saving in-toto link file to: {link_file_path}")
         link_metadata.dump(link_file_path)
 
         task_logger.info("in-toto link file generated and signed successfully.")
+        return link_file_path
     except Exception as e:
         task_logger.error(f"Failed to generate in-toto link file: {str(e)}")
         raise
@@ -85,8 +91,4 @@ def record_artifact_as_dict(file_path):
         while chunk := f.read(8192):
             hash_digest.update(chunk)
 
-    return {
-        file_path: {
-            hash_algorithm: hash_digest.hexdigest()
-        }
-    }
+    return {hash_algorithm: hash_digest.hexdigest()}

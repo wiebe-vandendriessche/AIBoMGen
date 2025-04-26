@@ -28,8 +28,10 @@ def generate_worker_keys(output_dir):
 
     # Save the public key as a JSON file
     public_key_path = os.path.join(output_dir, "worker_public_key.json")
+    public_key_dict = worker_signer.public_key.to_dict()
+    public_key_dict["keyid"] = worker_signer.public_key.keyid  # Add the keyid field
     with open(public_key_path, "w") as pub_file:
-        json.dump(worker_signer.public_key.to_dict(), pub_file, indent=4)
+        json.dump(public_key_dict, pub_file, indent=4)
     print(f"Public key saved to: {public_key_path}")
 
     return worker_signer

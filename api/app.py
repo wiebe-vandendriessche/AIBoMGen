@@ -4,6 +4,9 @@ import shutil
 import uuid
 from contextlib import asynccontextmanager
 import time
+import io
+import logging
+import yaml
 
 # === Third-Party Library Imports ===
 from celery import Celery
@@ -29,8 +32,6 @@ from slowapi.util import get_remote_address
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from typing import Annotated, Literal, Optional
-import logging
-import yaml
 from in_toto.models.metadata import Metablock
 from in_toto.verifylib import in_toto_verify
 
@@ -403,17 +404,8 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
     
 @app.post("/verify_in-toto_link")
 async def verify_in_toto(
-    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.link)"),
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
 ):
-    """
-    Verify the in-toto link file against the signed layout.
-
-    Args:
-        link_file: The in-toto link file.
-
-    Returns:
-        Verification result.
-    """
     try:
         # Define paths
         temp_dir = "/tmp/verify"
@@ -421,7 +413,7 @@ async def verify_in_toto(
 
         # Path to the signed layout file (assumed to be in the API directory)
         layout_path = "/app/signed_layout.json"
-        
+
         # Check if the signed layout file exists
         if not os.path.exists(layout_path):
             raise HTTPException(
@@ -434,19 +426,35 @@ async def verify_in_toto(
         with open(link_path, "wb") as f:
             f.write(await link_file.read())
 
+        # Debug: Log the link file path and directory contents
+        print(f"Link file saved to: {link_path}")
+        print(f"Files in {temp_dir}: {os.listdir(temp_dir)}")
+
         # Load the signed layout
         layout_metadata = Metablock.load(layout_path)
+
 
         # Verify the layout and link file
         in_toto_verify(
             metadata=layout_metadata,
             layout_key_dict=layout_metadata.signed.keys,
-            link_dir_path=os.path.dirname(link_path),
+            link_dir_path=temp_dir,  # Directory containing the link file
         )
 
-        return {"status": "success", "message": "Verification successful."}
-    
-    except HTTPException as e:
-        raise e
+        # Detailed response
+        response = {
+            "status": "success",
+            "message": "Verification successful.",
+            "details": {
+                "layout_signature": "Verified",
+                "layout_expiration": "Valid",
+                "link_signatures": "Verified",
+                "threshold_verification": "Met",
+                "artifact_rules": "All rules satisfied",
+            },
+        }
+
+        return response
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
