@@ -14,9 +14,8 @@ def generate_private_key(file_path="private_key.pem"):
         f.write(pem)
     print(f"Private key saved to {file_path}")
 
-# Save the private key in the worker directory
-root_dir = os.path.dirname(os.path.abspath(__file__))
-worker_dir = os.path.join(root_dir, "worker")
+
+worker_dir = "./worker"
 os.makedirs(worker_dir, exist_ok=True)  # Ensure the worker directory exists
 private_key_path = os.path.join(worker_dir, "private_key.pem")
 generate_private_key(private_key_path)
