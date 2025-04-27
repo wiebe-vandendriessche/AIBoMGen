@@ -68,6 +68,11 @@ services:
         condition: service_started
     env_file:
       - .env
+    secrets:
+      - deprecated_private_key
+      - worker_private_key
+      - worker_public_key
+      - signed_layout
     networks:
       - internal_network
     restart: always # Automatically restart the container if it stops (sometimes needed if mysql is slow to start)
@@ -80,6 +85,11 @@ services:
       - rabbitmq
     env_file:
       - .env
+    secrets:
+      - deprecated_private_key
+      - worker_private_key
+      - worker_public_key
+      - signed_layout
     deploy:
       replicas: 3  # Define 3 replicas for the worker to demonstrate scalability
       resources:
@@ -126,3 +136,15 @@ volumes:
     driver: local
   mysql_data:
     driver: local
+
+secrets:
+  deprecated_private_key:
+    file: ./secrets/private_key.pem
+  worker_private_key:
+    file: ./secrets/worker_private_key.pem
+  worker_public_key:
+    file: ./secrets/worker_public_key.json
+  signed_layout:
+    file: ./secrets/signed_layout.json
+  layout:
+    file: ./secrets/layout.json

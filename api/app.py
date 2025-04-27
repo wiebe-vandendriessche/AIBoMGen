@@ -411,14 +411,14 @@ async def verify_in_toto(
         temp_dir = "/tmp/verify"
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Path to the signed layout file (assumed to be in the API directory)
-        layout_path = "/app/signed_layout.json"
+        # Path to the signed layout file (now in /run/secrets)
+        layout_path = "/run/secrets/signed_layout"
 
         # Check if the signed layout file exists
         if not os.path.exists(layout_path):
             raise HTTPException(
                 status_code=500,
-                detail="The signed layout file does not exist. Please ensure it is available at '/app/signed_layout.json'.",
+                detail="The signed layout file does not exist. Please ensure it is available at '/run/secrets/signed_layout'.",
             )
 
         # Save the uploaded link file temporarily
@@ -432,7 +432,6 @@ async def verify_in_toto(
 
         # Load the signed layout
         layout_metadata = Metablock.load(layout_path)
-
 
         # Verify the layout and link file
         in_toto_verify(

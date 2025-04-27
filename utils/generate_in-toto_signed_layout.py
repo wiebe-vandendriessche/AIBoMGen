@@ -5,7 +5,7 @@ import os
 import json
 
 
-def generate_worker_keys(output_dir):
+def generate_keys(output_dir):
     """
     Generate an Ed25519 key pair for the worker and save them to files.
 
@@ -122,18 +122,19 @@ def sign_layout(layout_metadata, worker_signer, output_path):
 
 
 if __name__ == "__main__":
-    # Directory to save worker keys
-    worker_dir = "./worker"
-    os.makedirs(worker_dir, exist_ok=True)
+    # Directory to save keys
+    secrets_dir = "./secrets"
+    os.makedirs(secrets_dir, exist_ok=True)
 
     # Generate worker keys
-    worker_signer = generate_worker_keys(worker_dir)
+    signer = generate_keys(secrets_dir)
 
-    # Create the in-toto layout
-    layout_path = "./api/layout.json"
-    os.makedirs("./api", exist_ok=True)
-    layout_metadata = create_layout(worker_signer, layout_path)
+    # Define the path for the layout file
+    layout_path = os.path.join(secrets_dir, "layout.json")
+
+    # Create the layout and save it to the specified file
+    layout_metadata = create_layout(signer, layout_path)
 
     # Sign the layout with the worker's private key
-    signed_layout_path = "./api/signed_layout.json"
-    sign_layout(layout_metadata, worker_signer, signed_layout_path)
+    signed_layout_path = os.path.join(secrets_dir, "signed_layout.json")
+    sign_layout(layout_metadata, signer, signed_layout_path)

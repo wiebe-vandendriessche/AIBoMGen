@@ -231,7 +231,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         task_logger.info("BOM data generated successfully.")
         task_logger.info(f"Signing BOM data...")
         # Sign the BOM data
-        signed_bom_data = sign_basic_bom_data(bom_data, "private_key.pem")
+        private_key_path = "/run/secrets/deprecated_private_key"
+        signed_bom_data = sign_basic_bom_data(bom_data, private_key_path)
         task_logger.info("BOM data signed successfully.")
         
         task_logger.info("Saving BOM data and signature...")
@@ -259,9 +260,9 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         
         # in-toto -----------------------------------------------------------------------
         
-        # Load the persistent private key
-        private_key_path = "/app/worker_private_key.pem"
-        public_key_path = "/app/worker_public_key.json"
+        # Load the persistent private key and public key from /run/secrets
+        private_key_path = "/run/secrets/worker_private_key"
+        public_key_path = "/run/secrets/worker_public_key"
         worker_signer = load_signer(private_key_path, public_key_path)
         
         # Record input and output artifacts

@@ -3,7 +3,10 @@ import json
 import hashlib
 import time
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
 import base64
 
 def generate_hash(file_path):
@@ -130,15 +133,28 @@ def generate_basic_bom_data(input_files, output_files, fit_params, environment, 
 
     return bom_data
 
-def sign_basic_bom_data(aibom, private_key_path):
-    """Sign the BOM data using the platform's private key."""
+def sign_basic_bom_data(bom_data, private_key_path):
+    """
+    Sign the BOM data using an RSA private key.
+
+    Args:
+        bom_data (dict): The BOM data to sign.
+        private_key_path (str): Path to the private key file.
+
+    Returns:
+        bytes: The signature of the BOM data.
+    """
+    # Serialize the BOM data to JSON
+    bom_data_json = json.dumps(bom_data, indent=4).encode("utf-8")
+
+    # Load the RSA private key
     with open(private_key_path, "rb") as key_file:
-        private_key = serialization.load_pem_private_key(key_file.read(), password=None)
-    
-    aibom_json = json.dumps(aibom, indent=4).encode()
+        private_key = load_pem_private_key(key_file.read(), password=None)
+
+    # Sign the BOM data using RSA with PKCS1v15 padding and SHA256 hash
     signature = private_key.sign(
-        aibom_json,
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+        bom_data_json,
+        padding.PKCS1v15(),
         hashes.SHA256()
     )
-    return signature  # Return the raw binary signature
+    return signature
