@@ -87,9 +87,6 @@ def create_layout(worker_signer, output_path):
     step.add_material_rule_from_string("MATCH dataset_definition WITH PRODUCTS FROM api")
     step.add_product_rule_from_string("CREATE trained_model.keras")
     step.add_product_rule_from_string("CREATE metrics.json")
-    step.add_product_rule_from_string("CREATE bom_data.json")
-    step.add_product_rule_from_string("CREATE bom_data.sig")
-    step.add_product_rule_from_string("CREATE cyclonedx_bom.json")
 
     # Add the step to the layout
     layout.steps = [step]

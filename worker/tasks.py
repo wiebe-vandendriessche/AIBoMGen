@@ -5,8 +5,8 @@ import time
 import yaml
 import pandas as pd
 import json
-from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx
-from bom_data_generator import generate_basic_bom_data, sign_basic_bom_data
+from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx, sign_bom
+from bom_data_generator import generate_basic_bom_data
 from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
@@ -183,8 +183,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         # Define paths for output artifacts
         trained_model_path = os.path.join(temp_dir, "trained_model.keras")
         metrics_path = os.path.join(temp_dir, "metrics.json")
-        bom_data_path = os.path.join(temp_dir, "bom_data.json")
-        signed_bom_data_path = os.path.join(temp_dir, "bom_data.sig")
+        bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")
+        bom_signature_path = os.path.join(temp_dir, "cyclonedx_bom.sig")
  
         # Save the trained model
         task_logger.info("Saving trained model...")
@@ -195,13 +195,57 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         with open(metrics_path, "w") as f:
             json.dump(model.history.history, f)
             
-        # AIBOM -------------------------------------------------------------------------
-
-        # Generate and save the BOM data
+        upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
+        upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
+            
+        # in-toto LINK ----------------------------------------------------------------------    
+        
+        # start AIBoM generation time
         start_aibom_time = time.time()
         start_aibom_time_utc = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(start_aibom_time))
         task_logger.info(f"AIBoM generation started at UTC: {start_aibom_time_utc}")
         task_logger.info("Generating BOM data...")
+        
+        # Load the persistent private key and public key from /run/secrets
+        private_key_path = "/run/secrets/worker_private_key"
+        public_key_path = "/run/secrets/worker_public_key"
+        worker_signer = load_signer(private_key_path, public_key_path)
+                
+        # Record input and output artifacts
+        materials = {
+            model_path: record_artifact_as_dict(model_path),
+            dataset_path: record_artifact_as_dict(dataset_path),
+            dataset_definition_path: record_artifact_as_dict(dataset_definition_path),
+        }
+
+        products = {
+            trained_model_path: record_artifact_as_dict(trained_model_path),
+            metrics_path: record_artifact_as_dict(metrics_path),
+        }
+        
+        # Generate the in-toto link file
+        link_file_path = generate_in_toto_link(
+            task_name="run_training",
+            materials=materials,
+            products=products,
+            command=["python", "tasks.py", "run_training"],
+            signer=worker_signer,
+            temp_dir=temp_dir,
+            task_logger=task_logger,
+        )
+
+        # Upload the in-toto link file to MinIO
+        task_logger.info("Uploading in-toto link file to MinIO...")
+        # Ensure the file in minio also has the keyid in the name by using the basename of the link file
+        link_file_minio_path = f"{unique_dir}/output/{os.path.basename(link_file_path)}"
+        upload_file_to_minio(link_file_path, link_file_minio_path)
+        task_logger.info("in-toto link file uploaded successfully.")            
+            
+        # AIBOM -------------------------------------------------------------------------
+        
+        # Generate the BOM
+        task_logger.info("Generating BOM...")
+
         # Define input files
         input_files = {
             "model_path": model_path,
@@ -227,76 +271,32 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         }
         
         # Generate BOM data
-        bom_data = generate_basic_bom_data(input_files, output_files, fit_params, environment, optional_params)
-        task_logger.info("BOM data generated successfully.")
-        task_logger.info(f"Signing BOM data...")
-        # Sign the BOM data
-        private_key_path = "/run/secrets/deprecated_private_key"
-        signed_bom_data = sign_basic_bom_data(bom_data, private_key_path)
-        task_logger.info("BOM data signed successfully.")
-        
-        task_logger.info("Saving BOM data and signature...")
-        # Save BOM data and signature
-        with open(bom_data_path, "w") as f:
-            json.dump(bom_data, f, indent=4)
-
-        with open(signed_bom_data_path, "wb") as f:  # Open in binary mode
-            f.write(signed_bom_data)
-        
-        task_logger.info("Transforming BOM data to CycloneDX format...")
-        cyclonedx_bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")            
-        # Transform to CycloneDX BOM
-        cyclonedx_bom = transform_to_cyclonedx(bom_data)
-        serialize_bom(cyclonedx_bom, cyclonedx_bom_path)
-
-        # Upload output artifacts to MinIO
-        task_logger.info("Uploading artifacts to MinIO...")
-        upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
-        upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
-        upload_file_to_minio(bom_data_path, f"{unique_dir}/output/bom_data.json")
-        upload_file_to_minio(signed_bom_data_path, f"{unique_dir}/output/bom_data.sig")
-        upload_file_to_minio(cyclonedx_bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
-        
-        
-        # in-toto -----------------------------------------------------------------------
-        
-        # Load the persistent private key and public key from /run/secrets
-        private_key_path = "/run/secrets/worker_private_key"
-        public_key_path = "/run/secrets/worker_public_key"
-        worker_signer = load_signer(private_key_path, public_key_path)
-        
-        # Record input and output artifacts
-        materials = {
-            model_path: record_artifact_as_dict(model_path),
-            dataset_path: record_artifact_as_dict(dataset_path),
-            dataset_definition_path: record_artifact_as_dict(dataset_definition_path),
-        }
-
-        products = {
-            trained_model_path: record_artifact_as_dict(trained_model_path),
-            metrics_path: record_artifact_as_dict(metrics_path),
-            bom_data_path: record_artifact_as_dict(bom_data_path),
-            signed_bom_data_path: record_artifact_as_dict(signed_bom_data_path),
-            cyclonedx_bom_path: record_artifact_as_dict(cyclonedx_bom_path),
-        }
-        
-        # Generate the in-toto link file
-        link_file_path = generate_in_toto_link(
-            task_name="run_training",
-            materials=materials,
-            products=products,
-            command=["python", "tasks.py", "run_training"],
-            signer=worker_signer,
-            temp_dir=temp_dir,
-            task_logger=task_logger,
+        bom_data = generate_basic_bom_data(
+            fit_params=fit_params,
+            environment=environment,
+            optional_params=optional_params,
+            link_file_minio_path=link_file_minio_path,
         )
         
-        # Upload the in-toto link file to MinIO
-        task_logger.info("Uploading in-toto link file to MinIO...")
-        # Ensure the file in minio also has the keyid in the name by using the basename of the link file
-        upload_file_to_minio(link_file_path, f"{unique_dir}/output/{os.path.basename(link_file_path)}")
-        task_logger.info("in-toto link file uploaded successfully.")
+        # Transform to CycloneDX format
+        task_logger.info("Transforming BOM data to CycloneDX format...")
+        cyclonedx_bom = transform_to_cyclonedx(bom_data)
+        serialize_bom(cyclonedx_bom, bom_path)
+
+        # Sign the BOM
+        task_logger.info("BOM data generated successfully.")
         
+        task_logger.info(f"Signing BOM data...")
+        sign_bom(bom_path, private_key_path, bom_signature_path)
+        task_logger.info(f"BOM signed: {bom_signature_path}")
+        
+
+        
+
+        # Upload output artifacts to MinIO
+        task_logger.info("Uploading bom to MinIO...")
+        upload_file_to_minio(bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
+        upload_file_to_minio(bom_signature_path, f"{unique_dir}/output/cyclonedx_bom.sig")
         
         task_logger.info("Task completed successfully.")
         result = {
@@ -304,15 +304,6 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             "unique_dir": unique_dir,
             "job_id": celery_app.current_task.request.id,
             "message": "Training completed successfully and AIBoM generated.",
-            "output_artifacts": [
-                "trained_model.keras",
-                "metrics.json",
-                "logs.log",
-                "bom_data.json",
-                "bom_data.sig",
-                "cyclonedx_bom.json",
-                "run_training.link",
-            ],
         }
         return result    
     except Exception as e:

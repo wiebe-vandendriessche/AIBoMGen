@@ -12,6 +12,9 @@ from cyclonedx.model import Property
 from cyclonedx.output.json import JsonV1Dot5, JsonV1Dot6
 from cyclonedx.validation.json import JsonStrictValidator
 from cyclonedx.exception import MissingOptionalDependencyException
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+import base64
+from cyclonedx.model.external_reference import ExternalReference, ExternalReferenceType
 
 import uuid
 
@@ -106,35 +109,14 @@ def transform_to_cyclonedx(bom_data):
             )
         )
         
-    # BOM: components: add input artifacts
-    for artifact_name, artifact_info in bom_data.get("input_artifacts", {}).items():
-        artifact_hash = HashType(alg=HashAlgorithm("SHA-256"), content=artifact_info.get("hash", "unknown"))
-        bom.components.add(
-            Component(
-                type=ComponentType.FILE,
-                name=artifact_name,
-                version="1.0",
-                description=artifact_info.get("description", "Input artifact"),
-                hashes=[artifact_hash],
-                properties=[
-                    Property(name="Path", value=artifact_info.get("path", "Unknown")),
-                ]
-            )
-        )
-
-    # BOM: components: add output artifacts
-    for artifact_name, artifact_info in bom_data.get("output_artifacts", {}).items():
-        artifact_hash = HashType(alg=HashAlgorithm("SHA-256"), content=artifact_info.get("hash", "unknown"))
-        bom.components.add(
-            Component(
-                type=ComponentType.FILE,
-                name=artifact_name,
-                version="1.0",
-                description=artifact_info.get("description", "Output artifact"),
-                hashes=[artifact_hash],
-                properties=[
-                    Property(name="Path", value=artifact_info.get("path", "Unknown")),
-                ]
+    # Add the .link file as an external reference
+    link_file_url = bom_data.get("attestations", {}).get("url")
+    if link_file_url:
+        bom.external_references.add(
+            ExternalReference(
+                type=ExternalReferenceType.OTHER,
+                url=link_file_url,
+                comment="in-toto .link file for artifact integrity verification",
             )
         )
         
@@ -235,3 +217,30 @@ def serialize_bom(bom, output_path, schema_version=SchemaVersion.V1_6):
 
     except MissingOptionalDependencyException as error:
         print(f"Serialization failed due to missing optional dependency: {error}")
+
+
+def sign_bom(bom_path, private_key_path, signature_path):
+    """
+    Sign the BOM using the platform's private key.
+
+    Args:
+        bom_path (str): Path to the BOM file to be signed.
+        private_key_path (str): Path to the private key file.
+        signature_path (str): Path to save the generated signature.
+    """
+    # Load the private key
+    with open(private_key_path, "rb") as key_file:
+        private_key = Ed25519PrivateKey.from_private_bytes(key_file.read())
+
+    # Load the BOM content
+    with open(bom_path, "r") as bom_file:
+        bom_content = bom_file.read()
+
+    # Sign the BOM
+    signature = private_key.sign(bom_content.encode())
+
+    # Save the signature to a file
+    with open(signature_path, "wb") as sig_file:
+        sig_file.write(base64.b64encode(signature))
+
+    print(f"BOM signed and saved to {signature_path}")
