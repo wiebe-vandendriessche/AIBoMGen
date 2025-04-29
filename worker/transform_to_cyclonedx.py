@@ -14,7 +14,6 @@ from cyclonedx.validation.json import JsonStrictValidator
 from cyclonedx.exception import MissingOptionalDependencyException
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import base64
-from cyclonedx.model.external_reference import ExternalReference, ExternalReferenceType
 
 import uuid
 
@@ -110,15 +109,15 @@ def transform_to_cyclonedx(bom_data):
         )
         
     # Add the .link file as an external reference
-    link_file_url = bom_data.get("attestations", {}).get("url")
-    if link_file_url:
-        bom.external_references.add(
-            ExternalReference(
-                type=ExternalReferenceType.OTHER,
-                url=link_file_url,
-                comment="in-toto .link file for artifact integrity verification",
-            )
-        )
+    # link_file_url = bom_data.get("attestations", {}).get("url")
+    # if link_file_url:
+    #     bom.external_references.add(
+    #         ExternalReference(
+    #             type=ExternalReferenceType.OTHER,
+    #             url=link_file_url,
+    #             comment="in-toto .link file for artifact integrity verification",
+    #         )
+    #     )
         
     # BOM: components: add container environment for training to the BOM --------------------------------------------------
     

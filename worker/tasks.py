@@ -11,6 +11,7 @@ from shared.minio_utils import download_file_from_minio, upload_file_to_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
 from in_toto_helper import load_signer, generate_in_toto_link, record_artifact_as_dict
+from environment_extractor import extract_environment_details
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
 def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, optional_params=None, fit_params=None):
@@ -246,37 +247,29 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         # Generate the BOM
         task_logger.info("Generating BOM...")
 
-        # Define input files
-        input_files = {
-            "model_path": model_path,
-            "dataset_path": dataset_path,
-            "dataset_definition_path": dataset_definition_path,
-        }
-        # Define output files
-        output_files = {
-            "trained_model_path": trained_model_path,
-            "metrics_path": metrics_path,
-            "logs_path": logs_path,
-        }
-        # Set capture environment
-        environment = {
-            "python_version": "3.9",
-            "tensorflow_version": tf.__version__,
-            "request_time": start_task_time_utc,
-            "start_training_time": start_training_time_utc,
-            "start_aibom_time": start_aibom_time_utc,
-            "training_time": start_aibom_time - start_training_time,
-            "job_id": celery_app.current_task.request.id,
-            "unique_dir": unique_dir,
-        }
+        environment_details = extract_environment_details(
+            task_logger=task_logger,
+            start_task_time=start_task_time,
+            start_training_time=start_training_time,
+            start_aibom_time=start_aibom_time,
+            unique_dir=unique_dir,
+        )
         
+        task_logger.info(f"Environment details: {json.dumps(environment_details, indent=4)}")
+
         # Generate BOM data
         bom_data = generate_basic_bom_data(
+            task_logger=task_logger,
+            environment=environment_details,
+            materials=materials,
+            products=products,
             fit_params=fit_params,
-            environment=environment,
             optional_params=optional_params,
             link_file_minio_path=link_file_minio_path,
         )
+        
+        task_logger.info(f"DEBUG BOM data: {json.dumps(bom_data, indent=2)}")
+        return "TESTING"
         
         # Transform to CycloneDX format
         task_logger.info("Transforming BOM data to CycloneDX format...")

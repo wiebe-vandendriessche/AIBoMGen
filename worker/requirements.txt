@@ -8,3 +8,6 @@ cyclonedx-python-lib[validation]
 boto3
 cffi
 in-toto
+psutil
+nvidia-ml-py3
+docker
