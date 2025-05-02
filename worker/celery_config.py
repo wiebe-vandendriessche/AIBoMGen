@@ -1,6 +1,8 @@
 from celery import Celery
 import os
 from dotenv import load_dotenv
+from kombu import Queue
+
 
 load_dotenv()
 
@@ -14,6 +16,11 @@ celery_app.conf.update(
     task_routes={
         'tasks.run_training': {'queue': 'training_queue'},
     },
+    task_queues=(
+        Queue('training_queue', routing_key='training.#'),
+    ),
+    task_default_queue='training_queue',
+    task_default_routing_key='training.default',
     task_time_limit=3600,
     broker_connection_retry_on_startup=True,
     worker_concurrency=1,  # Limit each worker to handle one task at a time
@@ -23,3 +30,5 @@ celery_app.conf.update(
     result_expires=3600,  # Task results expire after 1 hour
     worker_prefetch_multiplier=1,  # Workers fetch only one task at a time
 )
+
+

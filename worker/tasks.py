@@ -7,7 +7,7 @@ import pandas as pd
 import json
 from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx, sign_bom
 from bom_data_generator import generate_basic_bom_data
-from shared.minio_utils import download_file_from_minio, upload_file_to_minio
+from shared.minio_utils import upload_file_to_minio, download_file_from_minio, TRAINING_BUCKET
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
 from in_toto_helper import load_signer, generate_in_toto_link, record_artifact_as_dict
@@ -100,9 +100,9 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
 
         # Download files from MinIO
         task_logger.info("Downloading files from MinIO...")
-        download_file_from_minio(f"{unique_dir}/model/{model_filename}", model_path)
-        download_file_from_minio(f"{unique_dir}/dataset/{dataset_filename}", dataset_path)
-        download_file_from_minio(f"{unique_dir}/definition/{dataset_definition_filename}", dataset_definition_path)
+        download_file_from_minio(f"{unique_dir}/model/{model_filename}", model_path, TRAINING_BUCKET)
+        download_file_from_minio(f"{unique_dir}/dataset/{dataset_filename}", dataset_path, TRAINING_BUCKET)
+        download_file_from_minio(f"{unique_dir}/definition/{dataset_definition_filename}", dataset_definition_path, TRAINING_BUCKET)
 
         # Load dataset definition
         task_logger.info("Loading dataset definition...")
@@ -196,8 +196,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         with open(metrics_path, "w") as f:
             json.dump(model.history.history, f)
             
-        upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras")
-        upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json")
+        upload_file_to_minio(trained_model_path, f"{unique_dir}/output/trained_model.keras", TRAINING_BUCKET)
+        upload_file_to_minio(metrics_path, f"{unique_dir}/output/metrics.json", TRAINING_BUCKET)
             
         # in-toto LINK ----------------------------------------------------------------------    
         
@@ -239,7 +239,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         task_logger.info("Uploading in-toto link file to MinIO...")
         # Ensure the file in minio also has the keyid in the name by using the basename of the link file
         link_file_minio_path = f"{unique_dir}/output/{os.path.basename(link_file_path)}"
-        upload_file_to_minio(link_file_path, link_file_minio_path)
+        upload_file_to_minio(link_file_path, link_file_minio_path, TRAINING_BUCKET)
         task_logger.info("in-toto link file uploaded successfully.")            
             
         # AIBOM -------------------------------------------------------------------------
@@ -314,7 +314,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             file_size = os.path.getsize(logs_path)
             if file_size > 0:
                 task_logger.info(f"Uploading application_logs to MinIO. Size: {file_size} bytes")
-                upload_file_to_minio(logs_path, f"{unique_dir}/output/logs.log")
+                upload_file_to_minio(logs_path, f"{unique_dir}/output/logs.log", TRAINING_BUCKET)
             else:
                 task_logger.error("logs.log is empty. Skipping upload.")
         else:

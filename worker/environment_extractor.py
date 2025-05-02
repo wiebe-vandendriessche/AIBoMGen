@@ -7,7 +7,7 @@ from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetCount, nvm
 import docker
 import subprocess
 import json
-from shared.minio_utils import upload_file_to_minio
+from shared.minio_utils import download_file_from_minio, list_files_in_bucket, WORKER_SCANS_BUCKET
 
 def extract_environment_details(task_logger, unique_dir, start_task_time, start_training_time, start_aibom_time):
     """
@@ -36,7 +36,7 @@ def extract_environment_details(task_logger, unique_dir, start_task_time, start_
         gpu_info = get_gpu_info(task_logger=task_logger)
         celery_task_info = get_celery_task_info(task_logger=task_logger)
         docker_info = get_docker_info(task_logger=task_logger)
-        vulnerability_scan = scan_container_vulnerabilities_with_trivy(unique_dir=unique_dir ,task_logger=task_logger, docker_info=docker_info)
+        vulnerability_scan = fetch_latest_vulnerability_scan_from_minio(unique_dir, task_logger=task_logger)        
         
         task_logger.info("Environment details extracted successfully.")
 
@@ -195,48 +195,41 @@ def get_celery_task_info(task_logger=None):
             task_logger.error(f"Error retrieving Celery task info: {str(e)}")
         return f"Error retrieving Celery task info: {str(e)}"
     
-def scan_container_vulnerabilities_with_trivy(unique_dir, docker_info, task_logger=None):
+def fetch_latest_vulnerability_scan_from_minio(unique_dir, task_logger=None):
     """
-    Scan the specified Docker image for vulnerabilities using Trivy.
+    Fetch the latest vulnerability scan results from MinIO.
 
     Args:
-        docker_info (dict): Docker container and image information.
+        unique_dir (str): Unique directory for the task.
         task_logger (Logger, optional): Logger for logging task-specific information.
 
     Returns:
-        dict: A dictionary containing vulnerabilities classified by severity or metadata if no vulnerabilities are found.
+        dict: The latest vulnerability scan summary.
     """
     try:
         if task_logger:
-            task_logger.info("Scanning container for vulnerabilities using Trivy...")
+            task_logger.info("Fetching the latest vulnerability scan results from MinIO...")
 
-        # Ensure the image name is available
-        image_name = docker_info.get("image_name")
-        if not image_name or image_name == "Unknown":
+        # List all files in the vulnerability scans bucket
+        bucket_prefix = "worker-vulnerability-scans/"
+        files = list_files_in_bucket(bucket_prefix, WORKER_SCANS_BUCKET)
+
+        if not files:
             if task_logger:
-                task_logger.error("Docker image name is not available.")
-            return {"error": "Docker image name is not available."}
+                task_logger.warning("No vulnerability scan files found in MinIO.")
+            return {"error": "No vulnerability scan files found."}
 
-        # Run Trivy using its official container image
-        trivy_result = subprocess.run(
-            [
-                "docker", "run", "--rm",
-                "-v", "/var/run/docker.sock:/var/run/docker.sock",
-                "-v", f"{os.path.expanduser('~')}/.cache/trivy:/root/.cache/",
-                "aquasec/trivy:latest", "image", "--scanners", "vuln", "--format", "json", image_name
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,  # Suppress Trivy logs from being passed to worker logs
-            text=True,
-        )
-        if trivy_result.returncode != 0:
-            if task_logger:
-                task_logger.error(f"Trivy scan failed: {trivy_result.stderr.strip()}")
-            return {"error": f"Trivy scan failed: {trivy_result.stderr.strip()}"}
+        # Find the latest file based on timestamp in the filename
+        latest_file = max(files, key=lambda x: x.split("_")[-1].replace(".json", ""))
+        local_file = f"/tmp/{os.path.basename(latest_file)}"
 
-        # Parse the JSON output
-        vulnerabilities = json.loads(trivy_result.stdout)
-        
+        # Download the latest file
+        download_file_from_minio(latest_file, local_file, WORKER_SCANS_BUCKET)
+
+        # Parse the JSON file
+        with open(local_file, "r") as f:
+            vulnerabilities = json.load(f)
+
         # Summarize vulnerabilities by severity
         summary = {}
         for result in vulnerabilities.get("Results", []):
@@ -244,32 +237,11 @@ def scan_container_vulnerabilities_with_trivy(unique_dir, docker_info, task_logg
                 severity = vuln.get("Severity", "UNKNOWN")
                 summary[severity] = summary.get(severity, 0) + 1
 
-        # Save the full results to a writable directory (e.g., /tmp)
-        output_file = f"/tmp/{image_name.replace(':', '_')}_vulnerabilities.json"
-        with open(output_file, "w") as f:
-            json.dump(vulnerabilities, f, indent=4)
-
         if task_logger:
-            task_logger.info(f"Full vulnerability scan saved to {output_file}")
-        
-        # Upload the file to Minio
-        upload_file_to_minio(
-            file_path=output_file,
-            object_name=f"{unique_dir}/output/{os.path.basename(output_file)}",
-        )
-        
-        
-        if task_logger:
-            task_logger.info("Vulnerability scan completed successfully.")
+            task_logger.info(f"Latest vulnerability scan summary: {summary}")
         return summary
 
-    except FileNotFoundError:
-        if task_logger:
-            task_logger.error("Docker CLI is not available.")
-        return {"error": "Docker CLI is not available."}
     except Exception as e:
         if task_logger:
-            task_logger.error(f"An error occurred while scanning for vulnerabilities: {str(e)}")
-        return {"error": f"An error occurred while scanning for vulnerabilities: {str(e)}"}
-
-
+            task_logger.error(f"Error fetching vulnerability scan results: {str(e)}")
+        return {"error": f"Error fetching vulnerability scan results: {str(e)}"}

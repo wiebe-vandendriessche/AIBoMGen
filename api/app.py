@@ -36,12 +36,7 @@ from in_toto.models.metadata import Metablock
 from in_toto.verifylib import in_toto_verify
 
 # === Local Imports ===
-from shared.minio_utils import (
-    upload_file_to_minio,
-    create_bucket_if_not_exists,
-    list_files_in_bucket,
-    generate_presigned_url,
-)
+from shared.minio_utils import upload_file_to_minio, list_files_in_bucket, TRAINING_BUCKET, create_bucket_if_not_exists, generate_presigned_url
 from shared.zip_utils import ZipValidationError, validate_zip_file
 from models import Job
 import models
@@ -290,10 +285,10 @@ Args:
                 raise HTTPException(status_code=400, detail=str(e))
 
         # Upload files to MinIO
-        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
-        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}")
-        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}")
-        
+        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}", TRAINING_BUCKET)
+        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}", TRAINING_BUCKET)
+        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}", TRAINING_BUCKET)
+
         # Send Celery task with file URLs
         task = celery_app.send_task(
             'tasks.run_training',
@@ -322,7 +317,8 @@ Args:
                     "validation_steps": validation_steps,
                     "validation_freq": validation_freq,
                 }
-            ]
+            ],
+            queue='training_queue'
         )
         
         # Store job metadata in the database
@@ -364,7 +360,7 @@ async def get_job_artifacts(job_id: str, user: User = Depends(get_current_user),
     if job.user_id != user_id:
         raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
-    artifacts = list_files_in_bucket(f"{job.unique_dir}/")
+    artifacts = list_files_in_bucket(f"{job.unique_dir}/", TRAINING_BUCKET)
     if not artifacts:
         raise HTTPException(status_code=404, detail="No artifacts found for this job.")
     return {"job_id": job_id, "artifacts": artifacts}
@@ -380,7 +376,7 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
         raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
     unique_dir = job.unique_dir
-    all_files = list_files_in_bucket(f"{unique_dir}/")
+    all_files = list_files_in_bucket(f"{unique_dir}/", TRAINING_BUCKET)
     if not all_files:
         raise HTTPException(status_code=404, detail="No files found for this job.")
 
@@ -391,7 +387,7 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
         raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
 
     object_name = matching_files[0]
-    presigned_url = generate_presigned_url(object_name)
+    presigned_url = generate_presigned_url(object_name, TRAINING_BUCKET, expiration=3600)  # URL valid for 1 hour
 
     if test_mode:
         presigned_url = presigned_url.replace("minio:9000", "localhost:9000")

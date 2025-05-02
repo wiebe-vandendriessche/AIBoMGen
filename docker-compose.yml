@@ -83,6 +83,7 @@ services:
       dockerfile: ./worker/Dockerfile
     depends_on:
       - rabbitmq
+      - minio
     env_file:
       - .env
     secrets:
@@ -112,18 +113,35 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket to allow the worker to communicate with the Docker daemon
 
+  scanner:
+    build:
+      context: .
+      dockerfile: ./scanner/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - minio
+    networks:
+      - internal_network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: >
+      sh -c "celery -A tasks beat --loglevel=info &
+             celery -A tasks worker --loglevel=info --queues=scanner_queue"
+
   flower:
     build:
       context: .
-      dockerfile: ./worker/Dockerfile
+      dockerfile: ./flower/Dockerfile
     container_name: flower
-    entrypoint: []  # Override the entrypoint to disable entrypoint.sh (otherwise flower will run as a worker)
-    command: celery -A celery_config flower --port=5555 --basic_auth=$FLOWER_BASIC_AUTH
+    command: --port=5555 --basic_auth=$FLOWER_BASIC_AUTH
     ports:
       - "5555:5555"
     depends_on:
       - rabbitmq
       - worker
+      - scanner
     env_file:
       - .env
     networks:
