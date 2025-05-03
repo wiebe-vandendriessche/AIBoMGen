@@ -75,7 +75,7 @@ services:
       - signed_layout
     networks:
       - internal_network
-    restart: always # Automatically restart the container if it stops (sometimes needed if mysql is slow to start)
+    restart: always
 
   worker:
     build:
@@ -127,9 +127,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: >
-      sh -c "celery -A tasks beat --loglevel=info &
-             celery -A tasks worker --loglevel=info --queues=scanner_queue"
-
+      sh -c "if [ \"$ENABLE_SCANNER\" = \"true\" ]; then
+               celery -A tasks beat --loglevel=info &
+               celery -A tasks worker --loglevel=info --queues=scanner_queue;
+             else
+               echo 'Scanner is disabled';
+             fi"
   flower:
     build:
       context: .

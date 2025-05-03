@@ -12,8 +12,7 @@ import base64
 
 def generate_basic_bom_data(task_logger, environment, materials, products, fit_params=None, optional_params=None, link_file_minio_path=None):
     """
-    Generate the basic BOM data as a dictionary, including the .link file as an attestation
-    and some duplicate components (e.g., datasets) for visibility.
+    Generate the basic BOM data as a dictionary, grouped into environment, materials, products, fit_params, and optional_params.
 
     Args:
         task_logger (Logger): Logger for logging task-specific information.
@@ -25,41 +24,50 @@ def generate_basic_bom_data(task_logger, environment, materials, products, fit_p
         link_file_minio_path (str): MinIO path to the uploaded in-toto .link file.
 
     Returns:
-        dict: The generated BOM data.
+        dict: The generated BOM data grouped by categories.
     """
-    # Example static values for the model (these can be dynamically set later if needed)
-    model_name = optional_params.get("model_name", "Unknown")
-    model_version = optional_params.get("model_version", "Unknown")
-    model_description = optional_params.get("model_description", "Unknown")
-    author = optional_params.get("author", "Unknown")
-    framework = optional_params.get("framework", "Unknown")
-    license_name = optional_params.get("license_name", "Unknown")
+    task_logger.info("Generating grouped BOM data...")
 
-    serialized_environment = json.dumps(environment, indent=4)
-
-    # Construct the BOM data
+    # Grouped BOM data
     bom_data = {
-        "model_name": model_name,
-        "model_version": model_version,
-        "model_description": model_description,
-        "framework": framework,
-        "author": author,
-        "license": license_name,
-        "training_environment": serialized_environment,
-        "training_parameters": fit_params,
+        "environment": {
+            "os": environment.get("os", "Unknown"),
+            "python_version": environment.get("python_version", "Unknown"),
+            "tensorflow_version": environment.get("tensorflow_version", "Unknown"),
+            "cpu_count": environment.get("cpu_count", "Unknown"),
+            "memory_total": environment.get("memory_total", "Unknown"),
+            "disk_usage": environment.get("disk_usage", "Unknown"),
+            "gpu_info": environment.get("gpu_info", []),
+            "celery_task_info": environment.get("celery_task_info", {}),
+            "docker_info": environment.get("docker_info", {}),
+            "vulnerability_scan": environment.get("vulnerability_scan", {}),
+            "request_time": environment.get("request_time", "Unknown"),
+            "start_training_time": environment.get("start_training_time", "Unknown"),
+            "start_aibom_time": environment.get("start_aibom_time", "Unknown"),
+            "training_time": environment.get("training_time", "Unknown"),
+            "job_id": environment.get("job_id", "Unknown"),
+            "unique_dir": environment.get("unique_dir", "Unknown"),
+        },
         "materials": {
-            name: {
-                "path": path,
-                "hash": materials[path]["sha256"],
+            path: {
+                "sha256": details.get("sha256", "Unknown")
             }
-            for name, path in materials.items()
+            for path, details in materials.items()
         },
         "products": {
-            name: {
-                "path": path,
-                "hash": products[path]["sha256"],
+            path: {
+                "sha256": details.get("sha256", "Unknown")
             }
-            for name, path in products.items()
+            for path, details in products.items()
+        },
+        "fit_params": fit_params or {},
+        "optional_params": {
+            "model_name": optional_params.get("model_name", "Unknown"),
+            "model_version": optional_params.get("model_version", "Unknown"),
+            "model_description": optional_params.get("model_description", "Unknown"),
+            "author": optional_params.get("author", "Unknown"),
+            "framework": optional_params.get("framework", "Unknown"),
+            "license_name": optional_params.get("license_name", "Unknown"),
         },
     }
 
@@ -73,5 +81,5 @@ def generate_basic_bom_data(task_logger, environment, materials, products, fit_p
     else:
         bom_data["attestations"] = None  # No attestation if the .link file is missing
 
-    task_logger.info("BOM data generated successfully.")
+    task_logger.info("Grouped BOM data generated successfully.")
     return bom_data

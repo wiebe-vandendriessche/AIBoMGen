@@ -10,7 +10,8 @@ from bom_data_generator import generate_basic_bom_data
 from shared.minio_utils import upload_file_to_minio, download_file_from_minio, TRAINING_BUCKET
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip 
 import logging
-from in_toto_helper import load_signer, generate_in_toto_link, record_artifact_as_dict
+from in_toto_link_generator import generate_in_toto_link
+from shared.in_toto_utils import load_signer, record_artifact_as_dict
 from environment_extractor import extract_environment_details
 
 @celery_app.task(name="tasks.run_training", time_limit=3600)
@@ -214,14 +215,14 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
                 
         # Record input and output artifacts
         materials = {
-            model_path: record_artifact_as_dict(model_path),
-            dataset_path: record_artifact_as_dict(dataset_path),
-            dataset_definition_path: record_artifact_as_dict(dataset_definition_path),
+            f"{unique_dir}/model/{model_filename}": record_artifact_as_dict(model_path),
+            f"{unique_dir}/dataset/{dataset_filename}": record_artifact_as_dict(dataset_path),
+            f"{unique_dir}/definition/{dataset_definition_filename}": record_artifact_as_dict(dataset_definition_path),
         }
 
         products = {
-            trained_model_path: record_artifact_as_dict(trained_model_path),
-            metrics_path: record_artifact_as_dict(metrics_path),
+            f"{unique_dir}/output/trained_model.keras": record_artifact_as_dict(trained_model_path),
+            f"{unique_dir}/output/metrics.json": record_artifact_as_dict(metrics_path),
         }
         
         # Generate the in-toto link file

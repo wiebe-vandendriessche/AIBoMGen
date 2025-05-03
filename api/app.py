@@ -34,14 +34,22 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal, Optional
 from in_toto.models.metadata import Metablock
 from in_toto.verifylib import in_toto_verify
+from in_toto.runlib import in_toto_match_products
+from in_toto.exceptions import (
+    SignatureVerificationError,
+    LayoutExpiredError,
+    LinkNotFoundError,
+    ThresholdVerificationError,
+    RuleVerificationError,
+)
 
 # === Local Imports ===
-from shared.minio_utils import upload_file_to_minio, list_files_in_bucket, TRAINING_BUCKET, create_bucket_if_not_exists, generate_presigned_url
+from shared.minio_utils import download_file_from_minio, upload_file_to_minio, list_files_in_bucket, TRAINING_BUCKET, create_bucket_if_not_exists, generate_presigned_url
 from shared.zip_utils import ZipValidationError, validate_zip_file
 from models import Job
 import models
 from database import SessionLocal, engine
-
+from shared.in_toto_utils import record_artifact_as_dict
 
 # === Load Environment Variables ===
 logger = logging.getLogger(__name__)
@@ -451,5 +459,83 @@ async def verify_in_toto(
 
         return response
 
+    except SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Invalid signature on the layout or link file.")
+    except LayoutExpiredError:
+        raise HTTPException(status_code=400, detail="Verification failed: The layout has expired.")
+    except LinkNotFoundError:
+        raise HTTPException(status_code=400, detail="Verification failed: No valid link files found for the step.")
+    except ThresholdVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Threshold requirements not met for the step.")
+    except RuleVerificationError as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: Artifact rule violation. {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+@app.post("/verify_file_hash")
+async def verify_file_hash(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+    uploaded_file: UploadFile = File(..., description="File to verify (e.g., a model or metrics file)."),
+):
+    """
+    Verify the hash of an uploaded file against the in-toto link file metadata.
+    """
+    try:
+        # Define paths
+        temp_dir = "/tmp/verify"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save the uploaded link file temporarily
+        link_path = os.path.join(temp_dir, link_file.filename)
+        with open(link_path, "wb") as f:
+            f.write(await link_file.read())
+
+        # Save the uploaded file to verify temporarily
+        file_to_verify_path = os.path.join(temp_dir, uploaded_file.filename)
+        with open(file_to_verify_path, "wb") as f:
+            f.write(await uploaded_file.read())
+
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
+
+        # Compute the hash of the uploaded file
+        computed_hash = record_artifact_as_dict(file_to_verify_path)
+
+        # Check if the hash matches any material or product in the link file
+        recorded_hash = None
+        for path, hash_dict in {**link_metadata.signed.materials, **link_metadata.signed.products}.items():
+            if os.path.basename(path) == uploaded_file.filename:
+                recorded_hash = hash_dict
+                break
+
+        if not recorded_hash:
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{uploaded_file.filename}' not found in materials or products of the link file.",
+            )
+
+        # Compare the hashes
+        if computed_hash != recorded_hash:
+            return {
+                "status": "failure",
+                "message": "Hash mismatch.",
+                "details": {
+                    "file_name": uploaded_file.filename,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                },
+            }
+
+        return {
+            "status": "success",
+            "message": "Hash matches the recorded metadata.",
+            "details": {
+                "file_name": uploaded_file.filename,
+                "hash": computed_hash,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+    
