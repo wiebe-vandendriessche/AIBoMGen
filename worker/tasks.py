@@ -256,8 +256,6 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             unique_dir=unique_dir,
         )
         
-        task_logger.info(f"Environment details: {json.dumps(environment_details, indent=4)}")
-
         # Generate BOM data
         bom_data = generate_basic_bom_data(
             task_logger=task_logger,
@@ -268,12 +266,12 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             optional_params=optional_params,
             link_file_minio_path=link_file_minio_path,
         )
-        
-        task_logger.info(f"DEBUG BOM data: {json.dumps(bom_data, indent=2)}")
-        return "TESTING"
-        
+                
         # Transform to CycloneDX format
         task_logger.info("Transforming BOM data to CycloneDX format...")
+        
+        task_logger.info("BOM data:" + json.dumps(bom_data, indent=4))
+        
         cyclonedx_bom = transform_to_cyclonedx(bom_data)
         serialize_bom(cyclonedx_bom, bom_path)
 
@@ -283,14 +281,11 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         task_logger.info(f"Signing BOM data...")
         sign_bom(bom_path, private_key_path, bom_signature_path)
         task_logger.info(f"BOM signed: {bom_signature_path}")
-        
-
-        
 
         # Upload output artifacts to MinIO
         task_logger.info("Uploading bom to MinIO...")
-        upload_file_to_minio(bom_path, f"{unique_dir}/output/cyclonedx_bom.json")
-        upload_file_to_minio(bom_signature_path, f"{unique_dir}/output/cyclonedx_bom.sig")
+        upload_file_to_minio(bom_path, f"{unique_dir}/output/cyclonedx_bom.json", TRAINING_BUCKET)
+        upload_file_to_minio(bom_signature_path, f"{unique_dir}/output/cyclonedx_bom.sig", TRAINING_BUCKET)
         
         task_logger.info("Task completed successfully.")
         result = {

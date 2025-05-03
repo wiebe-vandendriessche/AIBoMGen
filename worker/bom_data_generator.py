@@ -31,43 +31,53 @@ def generate_basic_bom_data(task_logger, environment, materials, products, fit_p
     # Grouped BOM data
     bom_data = {
         "environment": {
-            "os": environment.get("os", "Unknown"),
-            "python_version": environment.get("python_version", "Unknown"),
-            "tensorflow_version": environment.get("tensorflow_version", "Unknown"),
-            "cpu_count": environment.get("cpu_count", "Unknown"),
-            "memory_total": environment.get("memory_total", "Unknown"),
-            "disk_usage": environment.get("disk_usage", "Unknown"),
+            "os": environment.get("os", "Unknown") or "Unknown",
+            "python_version": environment.get("python_version", "Unknown") or "Unknown",
+            "tensorflow_version": environment.get("tensorflow_version", "Unknown") or "Unknown",
+            "cpu_count": environment.get("cpu_count", "Unknown") or "Unknown",
+            "memory_total": environment.get("memory_total", "Unknown") or "Unknown",
+            "disk_usage": environment.get("disk_usage", "Unknown") or "Unknown",
             "gpu_info": environment.get("gpu_info", []),
-            "celery_task_info": environment.get("celery_task_info", {}),
-            "docker_info": environment.get("docker_info", {}),
-            "vulnerability_scan": environment.get("vulnerability_scan", {}),
-            "request_time": environment.get("request_time", "Unknown"),
-            "start_training_time": environment.get("start_training_time", "Unknown"),
-            "start_aibom_time": environment.get("start_aibom_time", "Unknown"),
-            "training_time": environment.get("training_time", "Unknown"),
-            "job_id": environment.get("job_id", "Unknown"),
-            "unique_dir": environment.get("unique_dir", "Unknown"),
+            "celery_task_info": {
+                "task_id": environment.get("celery_task_info", {}).get("task_id", "Unknown") or "Unknown",
+                "task_name": environment.get("celery_task_info", {}).get("task_name", "Unknown") or "Unknown",
+                "queue": environment.get("celery_task_info", {}).get("queue", "Unknown") or "Unknown",
+            },
+            "docker_info": {
+                "container_id": environment.get("docker_info", {}).get("container_id", "Unknown") or "Unknown",
+                "image_name": environment.get("docker_info", {}).get("image_name", "Unknown") or "Unknown",
+                "image_id": environment.get("docker_info", {}).get("image_id", "Unknown") or "Unknown",
+            },
+            "vulnerability_scan": environment.get("vulnerability_scan", {"error": "No vulnerability scan data available."}),
+            "request_time": environment.get("request_time", "Unknown") or "Unknown",
+            "start_training_time": environment.get("start_training_time", "Unknown") or "Unknown",
+            "start_aibom_time": environment.get("start_aibom_time", "Unknown") or "Unknown",
+            "training_time": environment.get("training_time", "Unknown") or "Unknown",
+            "job_id": environment.get("job_id", "Unknown") or "Unknown",
+            "unique_dir": environment.get("unique_dir", "Unknown") or "Unknown",
         },
         "materials": {
             path: {
-                "sha256": details.get("sha256", "Unknown")
+                "sha256": details.get("sha256", "Unknown") or "Unknown"
             }
             for path, details in materials.items()
         },
         "products": {
             path: {
-                "sha256": details.get("sha256", "Unknown")
+                "sha256": details.get("sha256", "Unknown") or "Unknown"
             }
             for path, details in products.items()
         },
-        "fit_params": fit_params or {},
+        "fit_params": {
+            key: value or "Unknown" for key, value in (fit_params or {}).items()
+        },
         "optional_params": {
-            "model_name": optional_params.get("model_name", "Unknown"),
-            "model_version": optional_params.get("model_version", "Unknown"),
-            "model_description": optional_params.get("model_description", "Unknown"),
-            "author": optional_params.get("author", "Unknown"),
-            "framework": optional_params.get("framework", "Unknown"),
-            "license_name": optional_params.get("license_name", "Unknown"),
+            "model_name": optional_params.get("model_name", "Unknown") or "Unknown",
+            "model_version": optional_params.get("model_version", "Unknown") or "Unknown",
+            "model_description": optional_params.get("model_description", "Unknown") or "Unknown",
+            "author": optional_params.get("author", "Unknown") or "Unknown",
+            "framework": optional_params.get("framework", "Unknown") or "Unknown",
+            "license_name": optional_params.get("license_name", "Unknown") or "Unknown",
         },
     }
 
