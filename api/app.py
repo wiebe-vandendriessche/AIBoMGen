@@ -34,19 +34,22 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal, Optional
 from in_toto.models.metadata import Metablock
 from in_toto.verifylib import in_toto_verify
+from in_toto.runlib import in_toto_match_products
+from in_toto.exceptions import (
+    SignatureVerificationError,
+    LayoutExpiredError,
+    LinkNotFoundError,
+    ThresholdVerificationError,
+    RuleVerificationError,
+)
 
 # === Local Imports ===
-from shared.minio_utils import (
-    upload_file_to_minio,
-    create_bucket_if_not_exists,
-    list_files_in_bucket,
-    generate_presigned_url,
-)
+from shared.minio_utils import download_file_from_minio, upload_file_to_minio, list_files_in_bucket, TRAINING_BUCKET, create_bucket_if_not_exists, generate_presigned_url
 from shared.zip_utils import ZipValidationError, validate_zip_file
 from models import Job
 import models
 from database import SessionLocal, engine
-
+from shared.in_toto_utils import record_artifact_as_dict
 
 # === Load Environment Variables ===
 logger = logging.getLogger(__name__)
@@ -290,10 +293,10 @@ Args:
                 raise HTTPException(status_code=400, detail=str(e))
 
         # Upload files to MinIO
-        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
-        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}")
-        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}")
-        
+        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}", TRAINING_BUCKET)
+        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}", TRAINING_BUCKET)
+        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}", TRAINING_BUCKET)
+
         # Send Celery task with file URLs
         task = celery_app.send_task(
             'tasks.run_training',
@@ -322,7 +325,8 @@ Args:
                     "validation_steps": validation_steps,
                     "validation_freq": validation_freq,
                 }
-            ]
+            ],
+            queue='training_queue'
         )
         
         # Store job metadata in the database
@@ -364,7 +368,7 @@ async def get_job_artifacts(job_id: str, user: User = Depends(get_current_user),
     if job.user_id != user_id:
         raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
-    artifacts = list_files_in_bucket(f"{job.unique_dir}/")
+    artifacts = list_files_in_bucket(f"{job.unique_dir}/", TRAINING_BUCKET)
     if not artifacts:
         raise HTTPException(status_code=404, detail="No artifacts found for this job.")
     return {"job_id": job_id, "artifacts": artifacts}
@@ -380,7 +384,7 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
         raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
 
     unique_dir = job.unique_dir
-    all_files = list_files_in_bucket(f"{unique_dir}/")
+    all_files = list_files_in_bucket(f"{unique_dir}/", TRAINING_BUCKET)
     if not all_files:
         raise HTTPException(status_code=404, detail="No files found for this job.")
 
@@ -391,7 +395,7 @@ async def download_artifact(job_id: str, artifact_name: str, user: User = Depend
         raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
 
     object_name = matching_files[0]
-    presigned_url = generate_presigned_url(object_name)
+    presigned_url = generate_presigned_url(object_name, TRAINING_BUCKET, expiration=3600)  # URL valid for 1 hour
 
     if test_mode:
         presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
@@ -455,5 +459,187 @@ async def verify_in_toto(
 
         return response
 
+    except SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Invalid signature on the layout or link file.")
+    except LayoutExpiredError:
+        raise HTTPException(status_code=400, detail="Verification failed: The layout has expired.")
+    except LinkNotFoundError:
+        raise HTTPException(status_code=400, detail="Verification failed: No valid link files found for the step.")
+    except ThresholdVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Threshold requirements not met for the step.")
+    except RuleVerificationError as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: Artifact rule violation. {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+@app.post("/verify_file_hash")
+async def verify_file_hash(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+    uploaded_file: UploadFile = File(..., description="File to verify (e.g., a model or metrics file)."),
+):
+    """
+    Verify the hash of an uploaded file against the in-toto link file metadata.
+    """
+    try:
+        # Define paths
+        temp_dir = "/tmp/verify"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save the uploaded link file temporarily
+        link_path = os.path.join(temp_dir, link_file.filename)
+        with open(link_path, "wb") as f:
+            f.write(await link_file.read())
+
+        # Save the uploaded file to verify temporarily
+        file_to_verify_path = os.path.join(temp_dir, uploaded_file.filename)
+        with open(file_to_verify_path, "wb") as f:
+            f.write(await uploaded_file.read())
+
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
+
+        # Compute the hash of the uploaded file
+        computed_hash = record_artifact_as_dict(file_to_verify_path)
+
+        # Check if the hash matches any material or product in the link file
+        recorded_hash = None
+        for path, hash_dict in {**link_metadata.signed.materials, **link_metadata.signed.products}.items():
+            if os.path.basename(path) == uploaded_file.filename:
+                recorded_hash = hash_dict
+                break
+
+        if not recorded_hash:
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{uploaded_file.filename}' not found in materials or products of the link file.",
+            )
+
+        # Compare the hashes
+        if computed_hash != recorded_hash:
+            return {
+                "status": "failure",
+                "message": "Hash mismatch.",
+                "details": {
+                    "file_name": uploaded_file.filename,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                },
+            }
+
+        return {
+            "status": "success",
+            "message": "Hash matches the recorded metadata.",
+            "details": {
+                "file_name": uploaded_file.filename,
+                "hash": computed_hash,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+    
+@app.post("/verify_minio_artifacts")
+async def verify_minio_artifacts(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+):
+    """
+    Verify materials and products stored in MinIO against the in-toto link file metadata.
+    If this has mismatches, this means that the artifacts in MinIO are not the same as those recorded in the link file.
+    This could be due to a malicious actor that has access to MinIO tampering with the files.
+    Because the link file is signed, the malicious actor cannot change the link file itself to match the tampered files.
+    """
+    try:
+        # Define paths
+        temp_dir = "/tmp/verify"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save the uploaded link file temporarily
+        link_path = os.path.join(temp_dir, link_file.filename)
+        with open(link_path, "wb") as f:
+            f.write(await link_file.read())
+
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
+
+        # Prepare to store verification results
+        mismatched_materials = []
+        mismatched_products = []
+        verified_materials = []
+        verified_products = []
+
+        # Extract unique_dir dynamically from the first material or product path
+        all_paths = list(link_metadata.signed.materials.keys()) + list(link_metadata.signed.products.keys())
+        if not all_paths:
+            raise HTTPException(status_code=400, detail="No materials or products found in the link file.")
+        
+        # Assume the unique_dir is the first part of the path (e.g., "2809d3f5-72d8-4097-932c-401f3433c255")
+        unique_dir = all_paths[0].split("/")[0]
+
+        # Verify materials
+        for material_path, recorded_hash in link_metadata.signed.materials.items():
+            minio_path = material_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(material_path))
+
+            # Download material from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_materials.append(material_path)
+
+        # Verify products
+        for product_path, recorded_hash in link_metadata.signed.products.items():
+            minio_path = product_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(product_path))
+
+            # Download product from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_products.append({
+                    "path": product_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_products.append({
+                    "path": product_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_products.append(product_path)
+
+        # Prepare response
+        response = {
+            "status": "success" if not mismatched_materials and not mismatched_products else "failure",
+            "verified_materials": verified_materials,
+            "verified_products": verified_products,
+            "mismatched_materials": mismatched_materials,
+            "mismatched_products": mismatched_products,
+        }
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+    
