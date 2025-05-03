@@ -539,3 +539,107 @@ async def verify_file_hash(
         raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
     
     
+@app.post("/verify_minio_artifacts")
+async def verify_minio_artifacts(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+):
+    """
+    Verify materials and products stored in MinIO against the in-toto link file metadata.
+    If this has mismatches, this means that the artifacts in MinIO are not the same as those recorded in the link file.
+    This could be due to a malicious actor that has access to MinIO tampering with the files.
+    Because the link file is signed, the malicious actor cannot change the link file itself to match the tampered files.
+    """
+    try:
+        # Define paths
+        temp_dir = "/tmp/verify"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save the uploaded link file temporarily
+        link_path = os.path.join(temp_dir, link_file.filename)
+        with open(link_path, "wb") as f:
+            f.write(await link_file.read())
+
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
+
+        # Prepare to store verification results
+        mismatched_materials = []
+        mismatched_products = []
+        verified_materials = []
+        verified_products = []
+
+        # Extract unique_dir dynamically from the first material or product path
+        all_paths = list(link_metadata.signed.materials.keys()) + list(link_metadata.signed.products.keys())
+        if not all_paths:
+            raise HTTPException(status_code=400, detail="No materials or products found in the link file.")
+        
+        # Assume the unique_dir is the first part of the path (e.g., "2809d3f5-72d8-4097-932c-401f3433c255")
+        unique_dir = all_paths[0].split("/")[0]
+
+        # Verify materials
+        for material_path, recorded_hash in link_metadata.signed.materials.items():
+            minio_path = material_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(material_path))
+
+            # Download material from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_materials.append(material_path)
+
+        # Verify products
+        for product_path, recorded_hash in link_metadata.signed.products.items():
+            minio_path = product_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(product_path))
+
+            # Download product from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_products.append({
+                    "path": product_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_products.append({
+                    "path": product_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_products.append(product_path)
+
+        # Prepare response
+        response = {
+            "status": "success" if not mismatched_materials and not mismatched_products else "failure",
+            "verified_materials": verified_materials,
+            "verified_products": verified_products,
+            "mismatched_materials": mismatched_materials,
+            "mismatched_products": mismatched_products,
+        }
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+    
