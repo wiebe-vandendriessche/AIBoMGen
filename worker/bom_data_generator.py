@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 import base64
 
 
-def generate_basic_bom_data(task_logger, environment, materials, products, fit_params=None, optional_params=None, link_file_minio_path=None):
+def generate_basic_bom_data(task_logger, environment, materials, products, fit_params=None, optional_params=None, link_file_minio_path=None, unique_dir=None):
     """
     Generate the basic BOM data as a dictionary, grouped into environment, materials, products, fit_params, and optional_params.
 
@@ -58,13 +58,15 @@ def generate_basic_bom_data(task_logger, environment, materials, products, fit_p
         },
         "materials": {
             path: {
-                "sha256": details.get("sha256", "Unknown") or "Unknown"
+                "sha256": details.get("sha256", "Unknown"),
+                "local_path": details.get("local_path", "Unknown"),  # Use the passed local path directly
             }
             for path, details in materials.items()
         },
         "products": {
             path: {
-                "sha256": details.get("sha256", "Unknown") or "Unknown"
+                "sha256": details.get("sha256", "Unknown"),
+                "local_path": details.get("local_path", "Unknown"),  # Use the passed local path directly
             }
             for path, details in products.items()
         },

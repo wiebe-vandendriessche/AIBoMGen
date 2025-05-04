@@ -126,14 +126,17 @@ services:
       - internal_network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: >
-      sh -c "echo 'ENABLE_SCANNER is set to: $ENABLE_SCANNER' &&
-            if [ \"$ENABLE_SCANNER\" = \"true\" ]; then
-              celery -A tasks beat --loglevel=info &
-              celery -A tasks worker --loglevel=info --queues=scanner_queue;
-            else
-              echo 'Scanner is disabled';
-            fi"
+    command:
+      - sh
+      - -c
+      - |-
+        echo 'ENABLE_SCANNER is set to: $ENABLE_SCANNER' &&
+              if [ "$ENABLE_SCANNER" = "true" ]; then
+                celery -A tasks beat --loglevel=info &
+                celery -A tasks worker --loglevel=info --queues=scanner_queue;       
+              else
+                echo 'Scanner is disabled';
+              fi
   flower:
     build:
       context: .

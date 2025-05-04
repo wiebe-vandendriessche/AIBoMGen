@@ -1,7 +1,12 @@
 import datetime
 import json
+import io
 import os
 import sys
+import yaml
+import base64
+import uuid
+import tensorflow as tf
 from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType
 from cyclonedx.schema import OutputFormat, SchemaVersion
@@ -18,9 +23,6 @@ from cyclonedx.exception import MissingOptionalDependencyException
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-import base64
-
-import uuid
 
 lc_factory = LicenseFactory()
 
@@ -156,43 +158,101 @@ def transform_to_cyclonedx(bom_data):
     )
     bom.components.add(environment_component)
     
+    # Materials and Products use in DATA and MACHINE LEARNING component =========================================================================================================
     
-    
-    
-
     # Add materials as components
     material_components = []
+    dataset_hash = None
+    dataset_definition_hash = None
+    architecture_summary = "Unknown"
+    dataset_properties = []
+    
     for material_path, material_info in bom_data.get("materials", {}).items():
-        material_component = Component(
-            type=ComponentType.FILE,
-            name=material_path,
-            hashes=[HashType(alg=HashAlgorithm.SHA_256,
-                             content=material_info.get("sha256", ""))],
-            description="Input artifact used in training"
+        minio_path = material_path  # Use MinIO path instead of local path
+        if material_path.endswith("model.keras"):
+            # Use TensorFlow to load the model and extract the architecture summary
+            local_path = material_info.get("local_path", "")
+            if os.path.exists(local_path):
+                try:
+                    model = tf.keras.models.load_model(local_path)
+                    # Create a formatted string to summarize the model layers
+                    architecture_summary_lines = ["Name\tType\tShape"]
+                    for layer in model.layers:
+                        # Use layer.output.shape to get the output tensor's shape
+                        output_shape = getattr(layer.output, 'shape', 'Unknown')
+                        architecture_summary_lines.append(
+                            f"{layer.name}\t{layer.__class__.__name__}\t{output_shape}"
+                        )
+                    # Join the lines into a single string
+                    architecture_summary = "\n".join(architecture_summary_lines)
+                except Exception as e:
+                    print(f"Failed to load model and extract architecture summary from {local_path}: {e}")
+            continue
+        elif material_path.endswith(".zip") or material_path.endswith(".csv"):
+            # Handle dataset properties
+            dataset_hash = material_info.get("sha256", "")
+            dataset_properties.append(Property(name="Dataset MinIO Path", value=minio_path))
+        elif material_path.endswith(".yaml"):
+            # Handle dataset definition properties
+            dataset_definition_hash = material_info.get("sha256", "")
+            local_path = material_info.get("local_path", "")
+            if os.path.exists(local_path):
+                try:
+                    with open(local_path, "r") as file:
+                        dataset_definition = yaml.safe_load(file)
+                        preprocessing = dataset_definition.get("preprocessing", {})
+                        dataset_properties.extend([
+                            Property(name="Input Shape", value=str(dataset_definition.get("input_shape", "Unknown"))),
+                            Property(name="Output Shape", value=str(dataset_definition.get("output_shape", "Unknown"))),
+                            Property(name="Preprocessing", value=json.dumps(preprocessing, indent=4)),  # Properly formatted JSON
+                        ])
+                except Exception as e:
+                    print(f"Failed to read dataset definition from {local_path}: {e}")
+
+    # Make DATA component use dataset and dataset definition
+    if dataset_hash and dataset_definition_hash:
+        data_component = Component(
+            type=ComponentType.DATA,
+            name="Training Dataset",
+            description="Dataset and dataset definition used for training",
+            hashes=[
+                HashType(alg=HashAlgorithm.SHA_256, content=dataset_hash),
+                HashType(alg=HashAlgorithm.SHA_256, content=dataset_definition_hash),
+            ],
+            properties=dataset_properties + [
+                Property(name="Dataset Hash", value=dataset_hash),
+                Property(name="Dataset Definition Hash", value=dataset_definition_hash),
+            ]
         )
-        bom.components.add(material_component)
-        material_components.append(material_component)
+        bom.components.add(data_component)
+        material_components.append(data_component)
 
     # Add products as components
-    product_components = []
+    trained_model_hash = None
+    metrics_hash = None
+    metrics_properties = []
+
     for product_path, product_info in bom_data.get("products", {}).items():
-        product_component = Component(
-            type=ComponentType.FILE,
-            name=product_path,
-            hashes=[HashType(alg=HashAlgorithm.SHA_256,
-                             content=product_info.get("sha256", ""))],
-            description="Output artifact generated from training"
-        )
-        bom.components.add(product_component)
-        product_components.append(product_component)
+        minio_path = product_path  # Use MinIO path instead of local path
+        if product_path.endswith("trained_model.keras"):
+            trained_model_hash = product_info.get("sha256", "")
+        elif product_path.endswith("metrics.json"):
+            metrics_hash = product_info.get("sha256", "")
+            local_path = product_info.get("local_path", "")
+            if os.path.exists(local_path):
+                try:
+                    with open(local_path, "r") as file:
+                        metrics_data = json.load(file)
+                        metrics_properties.extend([
+                            Property(name=f"Metric: {key}", value=str(value)) for key, value in metrics_data.items()
+                        ])
+                except Exception as e:
+                    print(f"Failed to read metrics from {local_path}: {e}")
+
 
     # Combine fit_params, optional_params, and trained model into a MACHINE_LEARNING_MODEL component
     fit_params = bom_data.get("fit_params", {})
     optional_params = bom_data.get("optional_params", {})
-    trained_model = next(
-        (path for path in bom_data.get("products", {}).keys()
-         if path.endswith("trained_model.keras")), None
-    )
 
     model_component = Component(
         type=ComponentType.MACHINE_LEARNING_MODEL,
@@ -200,18 +260,17 @@ def transform_to_cyclonedx(bom_data):
         version=optional_params.get("model_version", "1.0"),
         description=optional_params.get(
             "model_description", "A trained machine learning model"),
+        hashes=[
+            HashType(alg=HashAlgorithm.SHA_256, content=trained_model_hash),
+            HashType(alg=HashAlgorithm.SHA_256, content=metrics_hash),
+        ],
         properties=[
-            Property(name="Framework", value=optional_params.get(
-                "framework", "Unknown")),
-            Property(name="License", value=optional_params.get(
-                "license_name", "Unknown")),
-            Property(name="Trained Model Path",
-                     value=trained_model or "Unknown"),
-            Property(
-                name="Optional Params Disclaimer",
-                value="The correctness of these optional parameters cannot be guaranteed by the platform as they are user-defined."
-            ),
-        ] + [
+            Property(name="Framework", value=optional_params.get("framework", "Unknown")),
+            Property(name="License", value=optional_params.get("license_name", "Unknown")),
+            Property(name="Architecture Summary", value=architecture_summary),
+            Property(name="Trained Model Hash", value=trained_model_hash),
+            Property(name="Metrics Hash", value=metrics_hash),
+        ] + metrics_properties + [
             Property(name=f"Fit Param: {key}", value=str(value)) for key, value in fit_params.items()
         ] + [
             Property(name=f"Optional Param: {key}", value=str(value)) for key, value in optional_params.items()
@@ -235,15 +294,7 @@ def transform_to_cyclonedx(bom_data):
         
     # Relationships (dependencies) =========================================================================================================
     
-    # Register the model component as a root dependency
-    bom.register_dependency(model_component, [
-        environment_component,
-        *material_components  # Use the list of BomRef objects directly
-    ])
 
-    # Register dependencies for product components
-    for product_component in product_components:
-        bom.register_dependency(product_component, [model_component])
 
     return bom
 
@@ -265,6 +316,7 @@ def serialize_bom(bom, output_path, schema_version=SchemaVersion.V1_6):
         pretty_json = json.dumps(json.loads(serialized_json), indent=4)
 
         # Validation
+        
         json_validator = JsonStrictValidator(schema_version)
         try:
             validation_errors = json_validator.validate_str(pretty_json)

@@ -245,23 +245,50 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         public_key_path = "/run/secrets/worker_public_key"
         worker_signer = load_signer(private_key_path, public_key_path)
 
-        # Record input and output artifacts
-        materials = {
+        # Record input and output artifacts for in-toto
+        in_toto_materials = {
             f"{unique_dir}/model/{model_filename}": record_artifact_as_dict(model_path),
             f"{unique_dir}/dataset/{dataset_filename}": record_artifact_as_dict(dataset_path),
             f"{unique_dir}/definition/{dataset_definition_filename}": record_artifact_as_dict(dataset_definition_path),
         }
 
-        products = {
+        in_toto_products = {
             f"{unique_dir}/output/trained_model.keras": record_artifact_as_dict(trained_model_path),
             f"{unique_dir}/output/metrics.json": record_artifact_as_dict(metrics_path),
+        }
+        
+        # Record input and output artifacts with local paths for BOM generation
+        materials = {
+            f"{unique_dir}/model/{model_filename}": {
+                "sha256": record_artifact_as_dict(model_path)["sha256"],
+                "local_path": model_path,  # Pass the local path directly
+            },
+            f"{unique_dir}/dataset/{dataset_filename}": {
+                "sha256": record_artifact_as_dict(dataset_path)["sha256"],
+                "local_path": dataset_path,  # Pass the local path directly
+            },
+            f"{unique_dir}/definition/{dataset_definition_filename}": {
+                "sha256": record_artifact_as_dict(dataset_definition_path)["sha256"],
+                "local_path": dataset_definition_path,  # Pass the local path directly
+            },
+        }
+
+        products = {
+            f"{unique_dir}/output/trained_model.keras": {
+                "sha256": record_artifact_as_dict(trained_model_path)["sha256"],
+                "local_path": trained_model_path,  # Pass the local path directly
+            },
+            f"{unique_dir}/output/metrics.json": {
+                "sha256": record_artifact_as_dict(metrics_path)["sha256"],
+                "local_path": metrics_path,  # Pass the local path directly
+            },
         }
 
         # Generate the in-toto link file
         link_file_path = generate_in_toto_link(
             task_name="run_training",
-            materials=materials,
-            products=products,
+            materials=in_toto_materials,
+            products=in_toto_products,
             command=["python", "tasks.py", "run_training"],
             signer=worker_signer,
             temp_dir=temp_dir,
@@ -298,6 +325,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             fit_params=fit_params,
             optional_params=optional_params,
             link_file_minio_path=link_file_minio_path,
+            unique_dir=unique_dir,
         )
 
         # Transform to CycloneDX format
