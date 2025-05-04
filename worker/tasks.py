@@ -5,7 +5,7 @@ import time
 import yaml
 import pandas as pd
 import json
-from transform_to_cyclonedx import serialize_bom, transform_to_cyclonedx, sign_bom
+from transform_to_cyclonedx import serialize_bom, sign_and_include_bom_as_property, transform_to_cyclonedx, sign_bom
 from bom_data_generator import generate_basic_bom_data
 from shared.minio_utils import upload_file_to_minio, download_file_from_minio, TRAINING_BUCKET
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip
@@ -214,7 +214,6 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         trained_model_path = os.path.join(temp_dir, "trained_model.keras")
         metrics_path = os.path.join(temp_dir, "metrics.json")
         bom_path = os.path.join(temp_dir, "cyclonedx_bom.json")
-        bom_signature_path = os.path.join(temp_dir, "cyclonedx_bom.sig")
 
         # Save the trained model
         task_logger.info("Saving trained model...")
@@ -331,24 +330,23 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         # Transform to CycloneDX format
         task_logger.info("Transforming BOM data to CycloneDX format...")
 
-        task_logger.info("BOM data:" + json.dumps(bom_data, indent=4))
-
         cyclonedx_bom = transform_to_cyclonedx(bom_data)
-        serialize_bom(cyclonedx_bom, bom_path)
-
-        # Sign the BOM
-        task_logger.info("BOM data generated successfully.")
-
         task_logger.info(f"Signing BOM data...")
-        sign_bom(bom_path, private_key_path, bom_signature_path)
-        task_logger.info(f"BOM signed: {bom_signature_path}")
-
+        sign_and_include_bom_as_property(cyclonedx_bom, private_key_path)
+        task_logger.info(f"BOM signed")
+        
+        # Verify the signature (currently Signature not supported in CycloneDX so its added as a property in the metadata)
+        if not any(prop.name == "BOM Signature" for prop in cyclonedx_bom.metadata.properties):
+            raise RuntimeError("BOM signature was not added successfully.")
+            
+        task_logger.info(f"serializing BOM data...")
+        serialize_bom(cyclonedx_bom, bom_path)
+        task_logger.info(f"BOM serialized: {bom_path}")
+        
         # Upload output artifacts to MinIO
         task_logger.info("Uploading bom to MinIO...")
         upload_file_to_minio(
             bom_path, f"{unique_dir}/output/cyclonedx_bom.json", TRAINING_BUCKET)
-        upload_file_to_minio(
-            bom_signature_path, f"{unique_dir}/output/cyclonedx_bom.sig", TRAINING_BUCKET)
 
         task_logger.info("Task completed successfully.")
         result = {

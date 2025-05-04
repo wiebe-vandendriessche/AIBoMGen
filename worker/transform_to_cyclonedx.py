@@ -12,8 +12,7 @@ from cyclonedx.model.component import Component, ComponentType
 from cyclonedx.schema import OutputFormat, SchemaVersion
 from cyclonedx.factory.license import LicenseFactory
 from cyclonedx.model import HashType, XsUri, HashAlgorithm
-from cyclonedx.model.contact import OrganizationalEntity
-from cyclonedx.model.contact import OrganizationalContact
+from cyclonedx.model.contact import OrganizationalEntity, OrganizationalContact
 from cyclonedx.model import Property
 from cyclonedx.builder.this import this_component as cdx_lib_component
 from cyclonedx.model import ExternalReference, ExternalReferenceType
@@ -294,7 +293,9 @@ def transform_to_cyclonedx(bom_data):
         
     # Relationships (dependencies) =========================================================================================================
     
-
+    # Register dependencies between components
+    if model_component and data_component and environment_component:
+        bom.register_dependency(model_component, [data_component, environment_component])
 
     return bom
 
@@ -345,6 +346,7 @@ def serialize_bom(bom, output_path, schema_version=SchemaVersion.V1_6):
         print(
             f"Serialization failed due to missing optional dependency: {error}")
 
+# deprecated
 def sign_bom(bom_path, private_key_path, signature_path):
     """
     Sign the BOM using the platform's private key.
@@ -375,3 +377,39 @@ def sign_bom(bom_path, private_key_path, signature_path):
         print(f"BOM signed and saved to {signature_path}")
     except Exception as e:
         print(f"Failed to sign BOM: {e}")
+
+
+def sign_and_include_bom_as_property(bom, private_key_path):
+    """
+    Sign the BOM and include the signature as a property in the BOM metadata.
+
+    Args:
+        bom (Bom): The CycloneDX BOM instance.
+        private_key_path (str): Path to the private key file in PEM format.
+    """
+    try:
+        # Serialize the BOM to JSON
+        json_outputter = JsonV1Dot6(bom)
+        serialized_json = json_outputter.output_as_string(indent=4)
+
+        # Load the private key from PEM format
+        with open(private_key_path, "rb") as key_file:
+            private_key = load_pem_private_key(key_file.read(), password=None)
+            if not isinstance(private_key, Ed25519PrivateKey):
+                raise ValueError("The provided private key is not an Ed25519 key.")
+
+        # Sign the serialized BOM content
+        signature = private_key.sign(serialized_json.encode())
+        encoded_signature = base64.b64encode(signature).decode()
+
+        # Add the signature as a property in the BOM metadata
+        bom.metadata.properties = bom.metadata.properties.union([
+            Property(
+                name="BOM Signature",
+                value=encoded_signature
+            )
+        ])
+
+        print("Signature successfully added to the BOM as a property.")
+    except Exception as e:
+        print(f"Failed to sign and include the BOM: {e}")
