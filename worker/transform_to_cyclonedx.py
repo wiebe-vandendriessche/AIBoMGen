@@ -16,7 +16,7 @@ from cyclonedx.model.contact import OrganizationalEntity, OrganizationalContact
 from cyclonedx.model import Property
 from cyclonedx.builder.this import this_component as cdx_lib_component
 from cyclonedx.model import ExternalReference, ExternalReferenceType
-from cyclonedx.output.json import JsonV1Dot5, JsonV1Dot6
+from cyclonedx.output.json import JsonV1Dot6
 from cyclonedx.validation.json import JsonStrictValidator
 from cyclonedx.exception import MissingOptionalDependencyException
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -67,6 +67,7 @@ def transform_to_cyclonedx(bom_data):
             ),
             group="IDLab from Imec and Ghent University",
             licenses=[lc_factory.make_from_string('MIT')],
+            bom_ref="aibomgen@0.1.0"
         )
     )
 
@@ -153,7 +154,8 @@ def transform_to_cyclonedx(bom_data):
         type=ComponentType.CONTAINER,
         name="Training Environment",
         description="Details of the environment used for training",
-        properties=environment_properties
+        properties=environment_properties,
+        bom_ref="training-environment@1.0"
     )
     bom.components.add(environment_component)
     
@@ -221,7 +223,8 @@ def transform_to_cyclonedx(bom_data):
             properties=dataset_properties + [
                 Property(name="Dataset Hash", value=dataset_hash),
                 Property(name="Dataset Definition Hash", value=dataset_definition_hash),
-            ]
+            ],
+            bom_ref="training-dataset@1.0"
         )
         bom.components.add(data_component)
         material_components.append(data_component)
@@ -273,7 +276,8 @@ def transform_to_cyclonedx(bom_data):
             Property(name=f"Fit Param: {key}", value=str(value)) for key, value in fit_params.items()
         ] + [
             Property(name=f"Optional Param: {key}", value=str(value)) for key, value in optional_params.items()
-        ]
+        ],
+        bom_ref="trained-model@1.0"
     )
     bom.components.add(model_component)
 
@@ -382,13 +386,12 @@ def sign_bom(bom_path, private_key_path, signature_path):
 def sign_and_include_bom_as_property(bom, private_key_path):
     """
     Sign the BOM and include the signature as a property in the BOM metadata.
-
-    Args:
-        bom (Bom): The CycloneDX BOM instance.
-        private_key_path (str): Path to the private key file in PEM format.
     """
     try:
-        # Serialize the BOM to JSON
+        # Remove the timestamp field for deterministic serialization
+        bom.metadata.timestamp = None
+
+        # Serialize the BOM to JSON (without the signature property)
         json_outputter = JsonV1Dot6(bom)
         serialized_json = json_outputter.output_as_string(indent=4)
 
