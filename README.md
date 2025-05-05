@@ -514,7 +514,7 @@ The **AI Bill of Materials (AIBoM)** is a JSON document that captures:
 - **Attestations**: References an in-toto `.link` file for artifact integrity verification.
 
 - [Example AIBoM JSON File](./examples/example_aibom.md)
-- [Example In-toto Link File](./examples/example_link_file.md)
+- [Example In-toto Link File](./examples/example_link.md)
 
 ---
 
