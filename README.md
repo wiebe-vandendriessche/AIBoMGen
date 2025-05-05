@@ -255,7 +255,7 @@ cd AIBoMGen
 
 ### 3. Configure Environment Variables
 Create a `.env` file in the root directory with the following variables:
-```
+```env
 RABBITMQ_USER=rmq_user
 RABBITMQ_PASSWORD=rmq_password
 FLOWER_BASIC_AUTH=admin:admin
