@@ -1,18 +1,54 @@
 # AIBoMGen: Distributed AI Training with AIBoM Generation
 
+## Table of Contents
+
+- [Overview](#overview)
+- [User Flows](#user-flows)
+  - [User Flow for an AI Developer (Model Training on the Trusted System)](#user-flow-for-an-ai-developer-model-training-on-the-trusted-system)
+  - [User Flow for an AI User (Verifying the AIBoM)](#user-flow-for-an-ai-user-verifying-the-aibom)
+- [Requirements](#requirements)
+  - [Prerequisites (You Need to Install)](#prerequisites-you-need-to-install)
+  - [Handled by Docker (API and Worker Containers)](#handled-by-docker-api-and-worker-containers)
+- [Repository Structure](#repository-structure)
+- [Setup](#setup)
+  - [1. Clone the Repository](#1-clone-the-repository)
+  - [2. Start Docker Daemon](#2-start-docker-daemon)
+  - [3. Configure Environment Variables](#3-configure-environment-variables)
+  - [4. Generate Platform Secrets for Signing](#4-generate-platform-secrets-for-signing)
+  - [5. Start Docker Compose](#5-start-docker-compose)
+  - [OAuth Setup](#oauth-setup)
+- [Usage](#usage)
+  - [API Endpoints](#api-endpoints)
+    - [1. Submit a Training Job](#1-submit-a-training-job)
+    - [2. Check Job Status](#2-check-job-status)
+    - [3. Retrieve Job Artifacts](#3-retrieve-job-artifacts)
+    - [4. Download a Specific Artifact](#4-download-a-specific-artifact)
+    - [5. Verify an In-toto Link File](#5-verify-an-in-toto-link-file)
+    - [6. Verify a File Hash Against an In-toto Link File](#6-verify-a-file-hash-against-an-in-toto-link-file)
+    - [7. Verify MinIO Artifacts Against an In-toto Link File](#7-verify-minio-artifacts-against-an-in-toto-link-file)
+    - [8. Verify a CycloneDX BOM and Associated In-toto Link File](#8-verify-a-cyclonedx-bom-and-associated-in-toto-link-file)
+- [AIBoM Generation (CycloneDX format)](#aibom-generation-cyclonedx-format)
+- [Trustability Features](#trustability-features)
+- [Dashboards](#dashboards)
+
+---
+
 ## Overview
 AIBoMGen is a distributed system for training AI models with a focus on **trustability**, integrity, reproducibility, and artifact management. The system ensures that the training process is fully auditable and tamper-proof by generating an **AI Bill of Materials (AIBoM)**, which includes cryptographic attestations of the training environment, inputs, and outputs.
 
 ![System Architecture](versionT3.drawio.png)
 
 Key features:
-- **Dataset Integrity Verification**: Hashing datasets and inputs to ensure consistency and prevent tampering.
-- **AIBoM Generation with Attestations**: Captures metadata, input/output hashes, and environment details, signed with a private key to ensure authenticity and trustability.
-- **Tamper-Proof Workflow**: The AIBoM generation process is automated and cannot be altered by the user, ensuring the integrity of the training pipeline.
-- **Secure API**: The system uses a controlled API to prevent arbitrary code execution, ensuring that users cannot tamper with the training process, shut down containers, or bypass the AIBoM generation.
-- **Containerized Workers**: Training jobs are executed in isolated Docker containers, providing an additional layer of security and ensuring that the system remains stable and safe from user interference.
-- **Distributed Training**: Uses Celery workers for scalable training jobs.
-- **MinIO Integration**: Handles file storage and retrieval for datasets, models, and logs.
+- **Automated AIBoM Generation**: Automatically creates an AI Bill of Materials (AIBoM) that documents the training process, including metadata, input/output details, and environment configurations.
+- **Supply Chain Integrity**: Leverages in-toto `.link` files to ensure the integrity of training inputs, outputs, and processes.
+- **Scalable Distributed Training**: Supports distributed training using Celery workers, enabling efficient execution across multiple nodes.
+- **Secure and Isolated Execution**: Runs training jobs in containerized environments to ensure security and prevent interference between jobs.
+- **Integrated Artifact Management**: Uses MinIO for efficient storage and retrieval of datasets, models, logs, and other artifacts.
+- **Comprehensive Verification**: Provides tools to validate AIBoMs, in-toto `.link` files, and associated artifacts for trust and authenticity.
+- **Vulnerability Mitigation**: Regularly scans the system and worker images for vulnerabilities using Trivy to maintain a secure platform.
+- **User-Friendly API**: Offers a secure and intuitive API for submitting training jobs and managing artifacts.
+- **Azure OAuth Integration**: Implements Azure OAuth for secure API calls, ensuring that only authenticated and authorized users can interact with the system.
+- **Extensibility**: Designed to easily update with additional tools, frameworks, and workflows, making it adaptable to various AI training pipelines. Currently focused on basic models using TensorFlow.
 
 ---
 
@@ -42,7 +78,7 @@ Key features:
 4. **Generate AIBoM**:
    - After training, the system:
      - Computes hashes for all input and output files (also logs and other intermediary files).
-     - Generates the AIBoM (AI Bill of Materials) with optional metadata, model information, input/output artifacts (training data), and environment details (worker / job data).
+     - Generates the AIBoM (AI Bill of Materials) with optional metadata, model information, input/output artifacts (training data), and environment details (worker/job data).
      - Signs the AIBoM using the system's private key (The platform acts as a trusted entity).
 
 5. **Upload Artifacts**:
@@ -50,11 +86,11 @@ Key features:
      - Trained model.
      - Training metrics.
      - Logs.
-     - AIBoM (JSON file).
-     - AIBoM signature.
+     - Signed In-toto `.link` file with hashes of artifacts.
+     - Signed CycloneDX BOM `.json` with reference to In-toto `.link` file.
 
 6. **Share AIBoM**:
-   - The developer shares the AIBoM and its signature with the AI users of his model, along with the public key for verification.
+   - The developer shares the AIBoM (and `.link` file) with the AI users of their model (along with the public key for verification).
 
 ---
 
@@ -63,7 +99,6 @@ Key features:
 1. **Receive AIBoM and Artifacts**:
    - The AI user receives:
      - The AIBoM (JSON file).
-     - The AIBoM signature.
      - The public key of the trusted system.
 
 2. **Verify the AIBoM**:
@@ -74,17 +109,24 @@ Key features:
      - The AIBoM was generated by the trusted system.
      - The AIBoM has not been tampered with.
 
-3. **Check Metadata**:
-   - The user inspects the AIBoM metadata to ensure everything looks valid.
+3. **Verify the Associated in-toto Link File**:
+   - The user verifies the `.link` file referenced in the AIBoM by:
+     - Using the `/verify_in-toto_link` endpoint to validate the `.link` file against the signed layout.
+     - Ensuring that all recorded materials and products match the metadata in the `.link` file.
 
-4. **Trust Decision**:
-   - If the AIBoM passes all verification steps, the user can trust the AI system and proceed to use the trained model.
-   - If the AIBoM fails verification, the user should reject the model and notify the developer.
+4. **Verify Artifacts Against the AIBoM**:
+   - The user can verify the integrity of artifacts (e.g., datasets, models) by:
+     - Using the `/verify_file_hash` endpoint to compare the hash of an uploaded file against the recorded metadata in the `.link` file.
+     - Using the `/verify_minio_artifacts` endpoint to validate that materials and products stored in MinIO match the metadata in the `.link` file.
 
-5. **Optionaly verify artifacts (datasets, model, etc. ) provided to the user**
-   - Recompute the hashes of the provided artifacts (datasets, model, etc.).
-   - Compare the recomputed hashes with the hashes recorded in the **verified** AIBoM.
-   - If the hashes match, the artifacts given are authentic and untampered.
+5. **Verify the CycloneDX AIBoM**:
+   - The user verifies the authenticity and integrity of the CycloneDX AIBoM by:
+     - Using the `/verify_bom_and_link` endpoint to validate the AIBoM's cryptographic signature using the platform's public key.
+     - Ensuring that the AIBoM's metadata and associated `.link` file are consistent and untampered.
+
+6. **Trust Decision**:
+   - If all verification steps succeed (or just step 5), the user can trust the AI system and proceed to use the trained model.
+   - If any verification step fails, the user should reject the model and notify the developer.
 
 ---
 
@@ -95,7 +137,7 @@ Key features:
 - **Docker Compose**: To orchestrate the containers.
 - **NVIDIA Container Toolkit**: To allow worker containers to use the host machine's GPU. Install it by following the [official NVIDIA documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
 - **Environment Variables**: Create a `.env` file in the root directory to configure the system (see **Setup** for details).
-- **Private Key**: A valid `private-key.pem` file must be placed in the worker container/directory. This key is used to cryptographically sign the AIBoM as an authority of the platform (e.g., the EU for compliance with the EU AI Act).
+- **Platform Secrets**: Generate platform secrets using the `generate_in-toto_signed_layout.py` script provided in the repository. This script generates a private-public key pair and a layout for supply chain verification and signing, ensuring the integrity and trustability of the system's supply chain.
 
 ### Handled by Docker (API and Worker Containers)
 #### API Container
@@ -103,23 +145,39 @@ Key features:
 - **FastAPI**: For building the API.
 - **Uvicorn**: For running the FastAPI application.
 - **Celery**: For task scheduling and distributed execution.
-- **Pydantic**: For data validation and settings management.
-- **Requests**: For making HTTP requests.
+- **Pydantic**: For data validation.
+- **Pydantic-Settings**: For managing application settings.
 - **Python-Multipart**: For handling file uploads.
 - **Python-Dotenv**: For loading environment variables.
 - **Boto3**: For interacting with AWS S3-compatible storage (e.g., MinIO).
-
+- **PyYAML**: For parsing YAML files.
+- **SlowAPI**: For rate-limiting API requests.
+- **FastAPI-Azure-Auth**: For integrating Azure AD authentication.
+- **SQLAlchemy**: For database ORM functionality.
+- **MySQL-Connector-Python**: For connecting to MySQL databases.
+- **In-toto**: For supply chain security and metadata verification.
+- **Cryptography**: For signing and verifying AIBoMs.
+- **CycloneDX-Python-Lib[Validation]**: For generating and validating CycloneDX SBOMs.
 
 #### Worker Container
-- **Python 3.9**: For TensorFlow and Celery integration.
 - **Celery**: For task scheduling and distributed execution.
 - **Flower**: For monitoring Celery workers.
-- **Python-Dotenv**: For loading environment variables.
-- **TensorFlow**: For model training.
+- **python-dotenv**: For loading environment variables.
 - **PyYAML**: For parsing dataset definitions.
 - **Pandas**: For dataset preprocessing.
 - **Cryptography**: For signing the AIBoM.
-- **CycloneDX-Python-Lib**: For generating CycloneDX SBOMs.
+- **cyclonedx-python-lib[validation]**: For generating and validating CycloneDX SBOMs.
+- **Boto3**: For interacting with AWS S3-compatible storage (e.g., MinIO).
+- **cffi**: For interacting with C libraries.
+- **in-toto**: For supply chain security and metadata verification.
+- **psutil**: For system monitoring and resource management.
+- **nvidia-ml-py3**: For monitoring NVIDIA GPU usage.
+- **Docker**: For containerized execution of training jobs.
+
+#### Scanner Container
+- **Celery**: For task scheduling and distributed execution.
+- **python-dotenv**: For loading environment variables.
+- **Docker**: For containerized execution of scanning tasks.
 - **Boto3**: For interacting with AWS S3-compatible storage (e.g., MinIO).
 
 ---
@@ -127,35 +185,55 @@ Key features:
 ## Repository Structure
 ```
 AIBoMGen/
+├── README.md                      # Project documentation
+├── README.pdf                     # PDF version of the documentation
 ├── api/
 │   ├── Dockerfile                 # API service Docker configuration
-│   ├── requirements.txt           # API dependencies
+│   ├── __init__.py                # API package initialization
 │   ├── app.py                     # FastAPI application
-│   └── __init__.py                # API package initialization
-├── worker/
-│   ├── Dockerfile                 # Worker service Docker configuration
-│   ├── requirements.txt           # Worker dependencies
-│   ├── tasks.py                   # Celery tasks for training
-│   ├── celery_config.py           # Celery configuration
-│   ├── transform_to_cyclonedx.py  # CycloneDX BOM transformation logic
-│   ├── bom_data_generator.py      # BOM data generation logic
-│   ├── entrypoint.sh              # Worker entrypoint script
+│   ├── database.py                # Database connection and models
+│   ├── models.py                  # ORM models
+│   └── requirements.txt           # API dependencies
+├── docker-compose.yml             # Docker Compose configuration
+├── flower/
+│   ├── Dockerfile                 # Flower monitoring service Docker configuration
+│   └── celery_config.py           # Celery configuration for Flower
+├── scanner/
+│   ├── Dockerfile                 # Scanner service Docker configuration
+│   ├── celery_config.py           # Celery configuration for Scanner
+│   ├── requirements.txt           # Scanner dependencies
+│   └── tasks.py                   # Celery tasks for scanning
+├── secrets/
+│   ├── layout.json                # In-toto layout file
+│   ├── private_key.pem            # Private key for signing
+│   ├── signed_layout.json         # Signed In-toto layout
+│   ├── worker_private_key.pem     # Worker private key
+│   └── worker_public_key.json     # Worker public key
 ├── shared/
+│   ├── in_toto_utils.py           # In-toto helper functions
 │   ├── minio_utils.py             # MinIO helper functions
 │   └── zip_utils.py               # ZIP file validation and extraction utilities
 ├── utils/
-│   ├── open-dashboards.py         # Script to open monitoring dashboards
-│   ├── generate_private_key.py    # Script to generate private keys
-│   └── generate_test_files/       # Scripts for generating test models and datasets
-│       ├── test_files.py
-│       ├── test_files2.py
-│       ├── test_filesIMG.py       # CNN test model (recommended for testing)
-│       └── model_filemaker.py      
-├── docker-compose.yml             # Docker Compose configuration
-├── .env                           # Environment variable configuration
-├── .gitignore                     # Git ignore rules
-├── .gitattributes                 # Git attributes configuration
-└── README.md                      # Project documentation
+│   ├── generate_in-toto_signed_layout.py  # Script to generate signed In-toto layout
+│   ├── generate_private_key_deprecated.py # Deprecated script for generating private keys
+│   ├── generate_test_files/       # Scripts for generating test models and datasets
+│   │   ├── model_filemaker.py
+│   │   ├── test_files.py
+│   │   ├── test_files2.py
+│   │   └── test_filesIMG.py       # CNN test model (recommended for testing)
+│   └── open-dashboards.py         # Script to open monitoring dashboards
+├── versionT3.drawio.png           # System architecture diagram
+└── worker/
+  ├── Dockerfile                 # Worker service Docker configuration
+  ├── bom_data_generator.py      # BOM data generation logic
+  ├── celery_config.py           # Celery configuration for Worker
+  ├── entrypoint.sh              # Worker entrypoint script
+  ├── environment_extractor.py   # Extracts environment details for AIBoM
+  ├── in_toto_link_generator.py  # Generates In-toto link files
+  ├── requirements.txt           # Worker dependencies
+  ├── tasks.py                   # Celery tasks for training
+  ├── training_logic.py          # Training logic implementation
+  └── transform_to_cyclonedx.py  # CycloneDX BOM transformation logic
 ```
 
 ---
@@ -183,14 +261,28 @@ RABBITMQ_PASSWORD=rmq_password
 FLOWER_BASIC_AUTH=admin:admin
 CELERY_BROKER_URL=amqp://rmq_user:rmq_password@rabbitmq:5672//
 CELERY_RESULT_BACKEND=rpc://
+WORKER_IMAGE_NAME=aibomgen-worker:latest
 MINIO_ROOT_USER=minio_user
 MINIO_ROOT_PASSWORD=minio_password
 MINIO_ENDPOINT=http://minio:9000
-MINIO_BUCKET_NAME=aibomgen
+TRAINING_BUCKET=training-jobs
+WORKER_SCANS_BUCKET=worker-scans
+SCANNER_SCANS_BUCKET=scanner-scans
+ENABLE_SCANNER=true
+AUTH_ENABLED=true
+APP_CLIENT_ID=a65becdd-c8b9-4a90-9c8a-9d9c526aa130
+OPENAPI_CLIENT_ID=24be1ce4-8d3c-423e-9d88-02cc9a836c17
+MYSQL_ROOT_PASSWORD=root_password
+MYSQL_DATABASE=aibomgen
+MYSQL_USER=aibomgen_user
+MYSQL_PASSWORD=aibomgen_password
+DATABASE_URL=mysql+mysqlconnector://aibomgen_user:aibomgen_password@mysql:3306/aibomgen
 ```
 
-### 4. Add a Private Key for Signing
-Place a valid `private-key.pem` file in the `worker/` directory or ensure it is mounted into the worker container. This key is used to cryptographically sign the AIBoM, ensuring trustability and compliance with regulations (e.g., the EU AI Act). The utils directory has a python script `generate_private_key.py` to let you generate one for testing purposes.
+**Note**: For testing purposes, it is recommended to set `AUTH_ENABLED=false` and `ENABLE_SCANNER=false` to simplify the setup and avoid additional authentication or scanning configurations.
+
+### 4. Generate Platform Secrets for Signing
+Run the `generate_in-toto_signed_layout.py` script located in the `utils/` directory. This script will generate a private-public key pair and a signed layout for supply chain verification. The private key will be used to cryptographically sign the AIBoM, ensuring trustability.
 
 ### 5. Start Docker Compose
 ```bash
@@ -201,6 +293,17 @@ docker-compose up --build
 ```bash
 sed -i 's/\r$//' worker/entrypoint.sh
 ```
+
+### OAuth Setup
+To enable Azure OAuth for secure API calls, follow the instructions provided in the [FastAPI Azure Auth documentation](https://intility.github.io/fastapi-azure-auth/). This guide will help you configure your Azure Active Directory (AAD) application and integrate it with AIBoMGen.
+
+Ensure the following environment variables are set in your `.env` file:
+```env
+AUTH_ENABLED=true
+APP_CLIENT_ID=<your-app-client-id>
+OPENAPI_CLIENT_ID=<your-openapi-client-id>
+```
+For testing purposes, you can disable authentication by setting `AUTH_ENABLED=false`.
 
 ---
 
@@ -327,57 +430,110 @@ The FastAPI service runs on [http://localhost:8000](http://localhost:8000). Belo
   }
   ```
 
+#### 5. Verify an In-toto Link File
+- **Endpoint**: `POST /verify_in-toto_link`
+- **Request Body**:
+  - **File**:
+    - `link_file`: The in-toto link file to verify (e.g., `run_training.<keyid>.link`).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Verification successful.",
+    "details": {
+      "layout_signature": "Verified",
+      "layout_expiration": "Valid",
+      "link_signatures": "Verified",
+      "threshold_verification": "Met",
+      "artifact_rules": "All rules satisfied"
+    }
+  }
+  ```
+
+#### 6. Verify a File Hash Against an In-toto Link File
+- **Endpoint**: `POST /verify_file_hash`
+- **Request Body**:
+  - **Files**:
+    - `link_file`: The in-toto link file (e.g., `run_training.<keyid>.link`).
+    - `uploaded_file`: The file to verify (e.g., a model or metrics file).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Hash matches the recorded metadata.",
+    "details": {
+      "file_name": "trained_model.keras",
+      "hash": {
+        "sha256": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2"
+      }
+    }
+  }
+  ```
+
+#### 7. Verify MinIO Artifacts Against an In-toto Link File
+- **Endpoint**: `POST /verify_minio_artifacts`
+- **Request Body**:
+  - **File**:
+    - `link_file`: The in-toto link file (e.g., `run_training.<keyid>.link`).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "verified_materials": ["2809d3f5-72d8-4097-932c-401f3433c255/model.h5"],
+    "verified_products": ["2809d3f5-72d8-4097-932c-401f3433c255/trained_model.keras"],
+    "mismatched_materials": [],
+    "mismatched_products": []
+  }
+  ```
+
+#### 8. Verify a CycloneDX BOM and Associated In-toto Link File
+- **Endpoint**: `POST /verify_bom_and_link`
+- **Request Body**:
+  - **File**:
+    - `bom_file`: A signed CycloneDX BOM file (JSON format).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "BOM and .link file verification successful.",
+    "details": {
+      "bom_signature": "Verified",
+      "link_file": "Verified"
+    }
+  }
+  ```
+
 ---
 
-UNDER DEVELOPMENT
-
-## AIBoM Generation
+## AIBoM Generation (CycloneDX format)
 The **AI Bill of Materials (AIBoM)** is a JSON document that captures:
-- **Environment Details**: Python version, TensorFlow version, and system metadata.
-- **Input Files**: Hashes of datasets and model files used for training.
-- **Output Files**: Hashes of generated artifacts (e.g., trained model, metrics).
-- **Configuration**: Training parameters such as epochs, batch size, and learning rate.
+- **Environment Details**: Captures details such as OS, Python version, TensorFlow version, CPU count, memory, disk usage, GPU information, Docker container details, and vulnerability scan results.
+- **Input Files**: Includes hashes and metadata for datasets and dataset definitions used during training.
+- **Output Files**: Includes hashes and metadata for the trained model and metrics generated during training.
+- **Configuration**: Captures training parameters (e.g., epochs, batch size) and optional metadata (e.g., model name, version, description).
+- **Attestations**: References an in-toto `.link` file for artifact integrity verification.
 
-### Example AIBoM
-```json
-{
-  "environment": {
-    "python_version": "3.9",
-    "tensorflow_version": "2.12.0",
-    "request_time": "2025-04-16 17:00:00",
-    "job_id": "123e4567-e89b-12d3-a456-426614174000"
-  },
-  "inputs": {
-    "dataset.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "model.h5": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2"
-  },
-  "outputs": {
-    "trained_model.keras": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
-    "metrics.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  },
-  "config": {
-    "epochs": 10,
-    "batch_size": 32,
-    "learning_rate": 5e-5
-  }
-}
-```
+- [Example AIBoM JSON File](./examples/example_aibom.md)
+- [Example In-toto Link File](./examples/example_link_file.md)
+
+---
 
 ### Trustability Features
 1. **Automated AIBoM Generation**:
-   - The AIBoM is generated automatically by the system during the training process. Users cannot modify or bypass this step.
-   
+   - The AIBoM is generated automatically by the system during the training process. Users cannot modify or bypass this step, ensuring a consistent and tamper-proof workflow.
+
 2. **Cryptographic Signing**:
-   - The AIBoM is signed using a private key, creating a digital signature that ensures the authenticity and integrity of the document.
+   - The AIBoM is signed using a private key, creating a digital signature that ensures the authenticity and integrity of the document. This guarantees that the AIBoM originates from the trusted system.
 
 3. **Verification**:
-   - The generated AIBoM and its signature can be verified using the corresponding public key, ensuring that the training process was not tampered with.
+   - The generated AIBoM and its signature can be verified using the corresponding public key. This ensures that the training process and its outputs have not been tampered with and remain trustworthy.
+   - Additionally, the AIBoM references an **in-toto `.link` file** for artifact integrity verification. The `.link` file contains cryptographic hashes of all input and output artifacts, ensuring that the materials and products used during training match the recorded metadata. Verification of the `.link` file ensures the integrity of the supply chain.
 
 4. **Controlled API**:
-   - Users interact with the system exclusively through a secure API. This prevents arbitrary code execution, ensuring that users cannot tamper with the training process, bypass the AIBoM generation, or interfere with the system's infrastructure.
+   - Users interact with the system exclusively through a secure API. This prevents arbitrary code execution, ensuring that users cannot tamper with the training process, bypass the AIBoM generation, or interfere with the system's infrastructure. All interactions are logged for auditability.
 
 5. **Containerized Workers**:
-   - Training jobs are executed in isolated Docker containers. This ensures that each job runs in a secure and controlled environment, preventing users from accessing or modifying other parts of the system.
+   - Training jobs are executed in isolated Docker containers. This ensures that each job runs in a secure and controlled environment, preventing users from accessing or modifying other parts of the system. The containerized approach also enhances scalability and resource management.
 
 ---
 
