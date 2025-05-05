@@ -4,4 +4,4 @@
 WORKER_NAME="worker_${HOSTNAME}"
 
 # Start the Celery worker with the dynamically generated name
-celery -A tasks worker --loglevel=info -n "$WORKER_NAME"
+celery -A tasks worker --loglevel=info -n "$WORKER_NAME" --queues=training_queue

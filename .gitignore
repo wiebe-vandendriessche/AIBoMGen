@@ -2,10 +2,11 @@
 .iml
 
 # own
-host_logging_dir
-host_output_dir
-private_key.pem
+*.pem
 .vscode
+layout.json
+signed_layout.json
+worker_public_key.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

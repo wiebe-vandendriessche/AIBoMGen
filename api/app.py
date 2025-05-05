@@ -1,43 +1,207 @@
-from typing import Literal, Optional
-from fastapi import FastAPI, Form, HTTPException, File, Query, UploadFile, Request  # Import Request
-from fastapi.responses import FileResponse, RedirectResponse
-from celery.result import AsyncResult
-from celery import Celery
-from dotenv import load_dotenv
+# === Standard Library Imports ===
 import os
 import shutil
 import uuid
-from shared.minio_utils import upload_file_to_minio, create_bucket_if_not_exists, list_files_in_bucket, generate_presigned_url
-from shared.zip_utils import ZipValidationError, validate_zip_file
 from contextlib import asynccontextmanager
+import time
+import io
+import logging
 import yaml
+import json
+import base64
+
+# === Third-Party Library Imports ===
+from celery import Celery
+from celery.result import AsyncResult
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Security,
+    UploadFile,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi_azure_auth import MultiTenantAzureAuthorizationCodeBearer
+from fastapi_azure_auth.user import User
+from pydantic import AnyHttpUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
+from typing import Annotated, Literal, Optional
+from in_toto.models.metadata import Metablock
+from in_toto.verifylib import in_toto_verify
+from in_toto.runlib import in_toto_match_products
+from in_toto.exceptions import (
+    SignatureVerificationError,
+    LayoutExpiredError,
+    LinkNotFoundError,
+    ThresholdVerificationError,
+    RuleVerificationError,
+)
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.exceptions import InvalidSignature
 
-load_dotenv()
+from cyclonedx.model.bom import Bom
+from cyclonedx.validation.json import JsonStrictValidator
+from cyclonedx.schema import SchemaVersion
+from cyclonedx.exception import MissingOptionalDependencyException
+from cyclonedx.output.json import JsonV1Dot6
 
-# Create a Celery instance in the FastAPI app to send tasks
+# === Local Imports ===
+from shared.minio_utils import download_file_from_minio, upload_file_to_minio, list_files_in_bucket, TRAINING_BUCKET, create_bucket_if_not_exists, generate_presigned_url
+from shared.zip_utils import ZipValidationError, validate_zip_file
+from models import Job
+import models
+from database import SessionLocal, engine
+from shared.in_toto_utils import record_artifact_as_dict
+
+# === Load Environment Variables ===
+logger = logging.getLogger(__name__)
+
+# === Azure Auth Settings Configuration ===
+class Settings(BaseSettings):
+    BACKEND_CORS_ORIGINGS: list[str | AnyHttpUrl] = ["http://localhost:8000"]
+    OPENAPI_CLIENT_ID: str = ""
+    APP_CLIENT_ID: str = ""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
+
+settings = Settings()
+    
+# === Celery Configuration ===
 celery_app = Celery(
     "aibomgen_worker",
     broker=os.getenv("CELERY_BROKER_URL"),
     backend=os.getenv("CELERY_RESULT_BACKEND"),
 )
 
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
+
+if AUTH_ENABLED:
+    azure_scheme = MultiTenantAzureAuthorizationCodeBearer(
+        app_client_id=settings.APP_CLIENT_ID,
+        scopes={
+            f'api://{settings.APP_CLIENT_ID}/user_impersonation': 'user_impersonation',
+        },
+        validate_iss=False,
+    )
+
+    def get_current_user(user: User = Depends(azure_scheme)):
+        return user
+else:
+    def get_current_user():
+        class DummyUser:
+            claims = {"oid": "anonymous"}
+        return DummyUser()
+
+# === Database Initialization ===
+def get_db():
+    """
+    Dependency to provide a synchronous database session.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
+db_dependency = Annotated[Session, Depends(get_db)] 
+
+# === FastAPI Application Setup ===
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if AUTH_ENABLED:
+        # Load OpenID config immediately if authentication is enabled
+        await azure_scheme.openid_config.load_config()
+
     # Ensure the bucket exists when the API starts
     create_bucket_if_not_exists()
+    
+    # Call the retry mechanism during app startup
+    initialize_database_with_retry()
+    
     yield
 
-app = FastAPI(lifespan=lifespan)
 
+# Create FastAPI app with lifespan and conditional Swagger UI oauth configuration
+if AUTH_ENABLED:
+    app = FastAPI(
+        lifespan=lifespan,
+        swagger_ui_oauth2_redirect_url='/oauth2-redirect',
+        swagger_ui_init_oauth={
+            'usePkceWithAuthorizationCodeGrant': True,
+            'clientId': settings.OPENAPI_CLIENT_ID,
+        },
+    )
+else:
+    app = FastAPI(
+        lifespan=lifespan,
+    )
+
+# === Database Initialization with Retry ===
+def initialize_database_with_retry(retries=60, delay=10):
+    """
+    Retry mechanism to wait for the database to become available.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            models.Base.metadata.create_all(bind=engine)  # Create tables if they don't exist
+            logger.info("Database initialized successfully.")
+            return
+        except OperationalError as e:
+            logger.warning(f"Attempt {attempt}/{retries}: Database connection failed: {e}. Retrying in {delay} seconds...")
+            time.sleep(delay)
+    logger.error("Failed to connect to the database after multiple attempts.")
+    raise RuntimeError("Database initialization failed.")
+
+
+
+# === Middleware Setup ===
+if settings.BACKEND_CORS_ORIGINGS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINGS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+
+# === Rate Limiting Setup from SlowAPI ===
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-@app.post("/submit_job_by_model_and_data")
+
+# === Database session dependency === #
+
+def get_db():
+    """
+    Dependency to provide a synchronous database session.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.post("/submit_job_by_model_and_data", dependencies=[Depends(get_current_user)])
 @limiter.limit("5/minute")  # Limit to 5 requests per minute
 async def submit_job(
     request: Request,
+    user: User = Depends(get_current_user),  # Use Depends to get the user object
+    db: Session = Depends(get_db),  # Inject the database session
     # File uploads
     model: UploadFile = File(..., description="Model file to be trained (currently only .keras for tensorflow framework)."), 
     dataset: UploadFile = File(..., description="Dataset file for training (currently only csv and .zip for image data)."),
@@ -103,6 +267,9 @@ Args:
         
       
 """
+    # Save the user ID from the Azure token
+    user_id = user.claims.get("oid")  # Get the user's Azure Object ID
+    
     try:
         # Generate a unique directory for the job
         unique_dir = str(uuid.uuid4())
@@ -136,10 +303,10 @@ Args:
                 raise HTTPException(status_code=400, detail=str(e))
 
         # Upload files to MinIO
-        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}")
-        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}")
-        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}")
-        
+        model_url = upload_file_to_minio(model_path, f"{unique_dir}/model/{model.filename}", TRAINING_BUCKET)
+        dataset_url = upload_file_to_minio(dataset_path, f"{unique_dir}/dataset/{dataset.filename}", TRAINING_BUCKET)
+        dataset_definition_url = upload_file_to_minio(dataset_definition_path, f"{unique_dir}/definition/{dataset_definition.filename}", TRAINING_BUCKET)
+
         # Send Celery task with file URLs
         task = celery_app.send_task(
             'tasks.run_training',
@@ -168,79 +335,430 @@ Args:
                     "validation_steps": validation_steps,
                     "validation_freq": validation_freq,
                 }
-            ]
+            ],
+            queue='training_queue'
         )
+        
+        # Store job metadata in the database
+        job = Job(
+            id=task.id,
+            user_id=user_id,
+            unique_dir=unique_dir,
+        )
+        db.add(job)
+        db.commit()
+        
         return {"job_id": task.id, "status": "Training started", "unique_dir": unique_dir}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
 
-@app.get("/job_status/{job_id}")
-async def job_status(job_id: str):
-    job = AsyncResult(job_id, app=celery_app)
+@app.get("/job_status/{job_id}", dependencies=[Depends(get_current_user)])
+async def job_status(job_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = user.claims.get("oid")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return {"status": job.status, "result": job.result}
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to access this job.")
 
-@app.get("/job_artifacts/{job_id}")
-async def get_job_artifacts(job_id: str):
+    celery_task = AsyncResult(job_id, app=celery_app)
+    if not celery_task:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return {"status": celery_task.status, "result": celery_task.result}
+
+@app.get("/job_artifacts/{job_id}", dependencies=[Depends(get_current_user)])
+async def get_job_artifacts(job_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = user.claims.get("oid")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
+
+    artifacts = list_files_in_bucket(f"{job.unique_dir}/", TRAINING_BUCKET)
+    if not artifacts:
+        raise HTTPException(status_code=404, detail="No artifacts found for this job.")
+    return {"job_id": job_id, "artifacts": artifacts}
+
+@app.get("/job_artifacts/{job_id}/{artifact_name}", dependencies=[Depends(get_current_user)])
+async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(get_current_user), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = False):
+    user_id = user.claims.get("oid")
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You are not authorized to access this job.")
+
+    unique_dir = job.unique_dir
+    all_files = list_files_in_bucket(f"{unique_dir}/", TRAINING_BUCKET)
+    if not all_files:
+        raise HTTPException(status_code=404, detail="No files found for this job.")
+
+    matching_files = [file for file in all_files if file.endswith(f"/{artifact_name}")]
+    if not matching_files:
+        raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' not found.")
+    if len(matching_files) > 1:
+        raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
+
+    object_name = matching_files[0]
+    presigned_url = generate_presigned_url(object_name, TRAINING_BUCKET, expiration=3600)  # URL valid for 1 hour
+
+    if test_mode:
+        presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
+
+    if redirect:
+        return RedirectResponse(url=presigned_url)
+    else:
+        return {"artifact_name": artifact_name, "url": presigned_url}
+    
+    
+@app.post("/verify_in-toto_link")
+async def verify_in_toto(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+):
     try:
-        # Retrieve the unique directory from the Celery task result
-        job = AsyncResult(job_id, app=celery_app)
-        if not job or not job.result:
-            raise HTTPException(status_code=404, detail="Job not found or not completed.")
-        unique_dir = job.result.get("unique_dir")
-        if not unique_dir:
-            raise HTTPException(status_code=404, detail="Unique directory not found.")
+        # Save the uploaded link file temporarily
+        temp_dir = "/tmp/verify"
+        link_path = save_uploaded_file(link_file, temp_dir)
 
-        # List all files in the job-specific directory in MinIO
-        artifacts = list_files_in_bucket(f"{unique_dir}/")
-        if not artifacts:
-            raise HTTPException(status_code=404, detail="No artifacts found for this job.")
-        return {"job_id": job_id, "artifacts": artifacts}
+        # Use the helper function to verify the .link file
+        verify_link_file(link_path, temp_dir)
+
+        return {
+            "status": "success",
+            "message": "Verification successful.",
+            "details": {
+                "layout_signature": "Verified",
+                "layout_expiration": "Valid",
+                "link_signatures": "Verified",
+                "threshold_verification": "Met",
+                "artifact_rules": "All rules satisfied",
+            },
+        }
+
+    except SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Invalid signature on the layout or link file.")
+    except LayoutExpiredError:
+        raise HTTPException(status_code=400, detail="Verification failed: The layout has expired.")
+    except LinkNotFoundError:
+        raise HTTPException(status_code=400, detail="Verification failed: No valid link files found for the step.")
+    except ThresholdVerificationError:
+        raise HTTPException(status_code=400, detail="Verification failed: Threshold requirements not met for the step.")
+    except RuleVerificationError as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: Artifact rule violation. {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve artifacts: {str(e)}")
-
-
-@app.get("/job_artifacts/{job_id}/{artifact_name}")
-async def download_artifact(job_id: str, artifact_name: str, redirect: bool = True, test_mode: bool = False):
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+@app.post("/verify_file_hash")
+async def verify_file_hash(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+    uploaded_file: UploadFile = File(..., description="File to verify (e.g., a model or metrics file)."),
+):
     """
-    Retrieve a presigned URL for downloading an artifact.
+    Verify the hash of an uploaded file against the in-toto link file metadata.
     """
     try:
-        # Retrieve the unique directory from the Celery task result
-        job = AsyncResult(job_id, app=celery_app)
-        if not job or not job.result:
-            raise HTTPException(status_code=404, detail="Job not found or not completed.")
-        unique_dir = job.result.get("unique_dir")
-        if not unique_dir:
-            raise HTTPException(status_code=404, detail="Unique directory not found.")
+        # Save the uploaded files temporarily
+        temp_dir = "/tmp/verify"
+        link_path = save_uploaded_file(link_file, temp_dir)
+        file_to_verify_path = save_uploaded_file(uploaded_file, temp_dir)
 
-        # List all files in the unique directory
-        all_files = list_files_in_bucket(f"{unique_dir}/")
-        if not all_files:
-            raise HTTPException(status_code=404, detail="No files found for this job.")
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
 
-        # Search for the artifact in the directory structure
-        matching_files = [file for file in all_files if file.endswith(f"/{artifact_name}")]
-        if not matching_files:
-            raise HTTPException(status_code=404, detail=f"Artifact '{artifact_name}' not found.")
-        if len(matching_files) > 1:
-            raise HTTPException(status_code=400, detail=f"Multiple artifacts named '{artifact_name}' found.")
+        # Compute the hash of the uploaded file
+        computed_hash = record_artifact_as_dict(file_to_verify_path)
 
-        # Generate a presigned URL for the matching artifact
-        object_name = matching_files[0]
-        presigned_url = generate_presigned_url(object_name)
-        
-        # Modify the presigned URL for testing purposes if test_mode is enabled
-        if test_mode:
-            presigned_url = presigned_url.replace("minio:9000", "localhost:9000")
-        
-        if redirect:
-            # Redirect to the presigned URL for direct download
-            return RedirectResponse(url=presigned_url)
-        else:
-            # Return the presigned URL in JSON format
-            return {"artifact_name": artifact_name, "url": presigned_url}
+        # Check if the hash matches any material or product in the link file
+        recorded_hash = None
+        for path, hash_dict in {**link_metadata.signed.materials, **link_metadata.signed.products}.items():
+            if os.path.basename(path) == uploaded_file.filename:
+                recorded_hash = hash_dict
+                break
+
+        if not recorded_hash:
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{uploaded_file.filename}' not found in materials or products of the link file.",
+            )
+
+        # Compare the hashes
+        if computed_hash != recorded_hash:
+            return {
+                "status": "failure",
+                "message": "Hash mismatch.",
+                "details": {
+                    "file_name": uploaded_file.filename,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                },
+            }
+
+        return {
+            "status": "success",
+            "message": "Hash matches the recorded metadata.",
+            "details": {
+                "file_name": uploaded_file.filename,
+                "hash": computed_hash,
+            },
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+    
+@app.post("/verify_minio_artifacts")
+async def verify_minio_artifacts(
+    link_file: UploadFile = File(..., description="In-toto link file (e.g., run_training.<keyid>.link)"),
+):
+    """
+    Verify materials and products stored in MinIO against the in-toto link file metadata.
+    If this has mismatches, this means that the artifacts in MinIO are not the same as those recorded in the link file.
+    This could be due to a malicious actor that has access to MinIO tampering with the files.
+    Because the link file is signed, the malicious actor cannot change the link file itself to match the tampered files.
+    """
+    try:
+        # Save the uploaded link file temporarily
+        temp_dir = "/tmp/verify"
+        link_path = save_uploaded_file(link_file, temp_dir)
+
+        # Load the link file
+        link_metadata = Metablock.load(link_path)
+
+        # Prepare to store verification results
+        mismatched_materials = []
+        mismatched_products = []
+        verified_materials = []
+        verified_products = []
+
+        # Extract unique_dir dynamically from the first material or product path
+        all_paths = list(link_metadata.signed.materials.keys()) + list(link_metadata.signed.products.keys())
+        if not all_paths:
+            raise HTTPException(status_code=400, detail="No materials or products found in the link file.")
+
+        # Assume the unique_dir is the first part of the path (e.g., "2809d3f5-72d8-4097-932c-401f3433c255")
+        unique_dir = all_paths[0].split("/")[0]
+
+        # Verify materials
+        for material_path, recorded_hash in link_metadata.signed.materials.items():
+            minio_path = material_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(material_path))
+
+            # Download material from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_materials.append({
+                    "path": material_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_materials.append(material_path)
+
+        # Verify products
+        for product_path, recorded_hash in link_metadata.signed.products.items():
+            minio_path = product_path  # Full path already includes unique_dir
+            local_path = os.path.join(temp_dir, os.path.basename(product_path))
+
+            # Download product from MinIO
+            try:
+                download_file_from_minio(minio_path, local_path, TRAINING_BUCKET)
+            except Exception as e:
+                mismatched_products.append({
+                    "path": product_path,
+                    "error": f"Failed to download from MinIO: {str(e)}"
+                })
+                continue
+
+            # Compute hash and compare
+            computed_hash = record_artifact_as_dict(local_path)
+            if computed_hash != recorded_hash:
+                mismatched_products.append({
+                    "path": product_path,
+                    "computed_hash": computed_hash,
+                    "recorded_hash": recorded_hash,
+                })
+            else:
+                verified_products.append(product_path)
+
+        # Prepare response
+        response = {
+            "status": "success" if not mismatched_materials and not mismatched_products else "failure",
+            "verified_materials": verified_materials,
+            "verified_products": verified_products,
+            "mismatched_materials": mismatched_materials,
+            "mismatched_products": mismatched_products,
+        }
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+@app.post("/verify_bom_and_link")
+async def verify_bom_and_link(
+    bom_file: UploadFile = File(..., description="A signed CycloneDX BOM file (JSON format)."),
+):
+    try:
+        # Save the BOM file
+        temp_dir = "/tmp/verify"
+        bom_path = save_uploaded_file(bom_file, temp_dir)
+
+        # Load the BOM file content
+        with open(bom_path, "r") as f:
+            bom_data = f.read()
+            
+        # Validate the BOM against the CycloneDX schema
+        validator = JsonStrictValidator(SchemaVersion.V1_6)
+        validation_errors = validator.validate_str(bom_data)
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail=f"BOM validation failed: {repr(validation_errors)}"
+            )
+
+        # Deserialize the BOM to extract the signature and serialized content
+        bom = Bom.from_json(json.loads(bom_data))
+
+        # Extract the signature from the BOM metadata
+        signature_property = next(
+            (prop for prop in bom.metadata.properties if prop.name == "BOM Signature"), None
+        )
+        if not signature_property:
+            raise HTTPException(status_code=400, detail="BOM signature not found in metadata.")
+
+        # Decode the signature from Base64
+        signature_bytes = base64.b64decode(signature_property.value)
+
+        # Remove the BOM Signature property and timestamp for verification
+        bom.metadata.properties = [
+            prop for prop in bom.metadata.properties if prop.name != "BOM Signature"
+        ]
+        bom.metadata.timestamp = None
+
+        # Serialize the BOM to JSON (excluding the BOM Signature property)
+        json_outputter = JsonV1Dot6(bom)
+        serialized_bom = json_outputter.output_as_string(indent=4)
+
+        # Load the worker's public key
+        public_key_bytes = load_worker_public_key()
+
+        # Verify the BOM signature using cryptography's Ed25519 module
+        try:
+            public_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            public_key.verify(signature_bytes, serialized_bom.encode("utf-8"))
+        except InvalidSignature:
+            raise HTTPException(status_code=400, detail="BOM signature verification failed.")
+
+        # Extract the .link file reference from the BOM
+        link_reference = next(
+            (str(ref.url) for ref in bom.external_references
+             if ref.type == "attestation" and ref.comment == "in-toto .link file for artifact integrity verification"),
+            None
+        )
+        if not link_reference:
+            raise HTTPException(status_code=400, detail="No .link file reference found in BOM.")
+
+        # Verify the .link file
+        link_path = os.path.join(temp_dir, os.path.basename(link_reference))
+        download_file_from_minio(link_reference, link_path, TRAINING_BUCKET)
+
+        try:
+            verify_link_file(link_path, temp_dir)
+        except SignatureVerificationError:
+            raise HTTPException(status_code=400, detail="Verification failed: Invalid signature on the layout or link file.")
+        except LayoutExpiredError:
+            raise HTTPException(status_code=400, detail="Verification failed: The layout has expired.")
+        except LinkNotFoundError:
+            raise HTTPException(status_code=400, detail="Verification failed: No valid link files found for the step.")
+        except ThresholdVerificationError:
+            raise HTTPException(status_code=400, detail="Verification failed: Threshold requirements not met for the step.")
+        except RuleVerificationError as e:
+            raise HTTPException(status_code=400, detail=f"Verification failed: Artifact rule violation. {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Verification failed during .link file verification: {str(e)}")
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "BOM and .link file verification successful.",
+                "details": {
+                    "bom_signature": "Verified",
+                    "link_file": "Verified",
+                },
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+    
+def verify_link_file(link_path: str, temp_dir: str):
+    """
+    Helper function to verify an in-toto .link file against the signed layout.
+    """
+    # Path to the signed layout file (assumed to be in /run/secrets)
+    layout_path = "/run/secrets/signed_layout"
+
+    # Check if the signed layout file exists
+    if not os.path.exists(layout_path):
+        raise HTTPException(
+            status_code=500,
+            detail="The signed layout file does not exist. Please ensure it is available at '/run/secrets/signed_layout'.",
+        )
+
+    # Load the signed layout and the .link file
+    layout_metadata = Metablock.load(layout_path)
+    link_metadata = Metablock.load(link_path)
+
+    # Verify the .link file
+    in_toto_verify(
+        metadata=layout_metadata,
+        layout_key_dict=layout_metadata.signed.keys,
+        link_dir_path=temp_dir,
+    )
+    
+def load_worker_public_key(worker_public_key_path: str = "/run/secrets/worker_public_key") -> bytes:
+    """
+    Load and validate the worker's public key from a JSON file.
+    """
+    if not os.path.exists(worker_public_key_path):
+        raise HTTPException(
+            status_code=500,
+            detail="Worker public key not found. Please ensure it is available at the specified path.",
+        )
+
+    with open(worker_public_key_path, "r") as f:
+        public_key_data = json.load(f)
+
+    if public_key_data["keytype"] != "ed25519" or public_key_data["scheme"] != "ed25519":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid public key format. Expected Ed25519 key.",
+        )
+
+    public_key_hex = public_key_data["keyval"]["public"]
+    return bytes.fromhex(public_key_hex)
+
+def save_uploaded_file(uploaded_file: UploadFile, temp_dir: str) -> str:
+    """
+    Save an uploaded file to a temporary directory and return its path.
+    """
+    os.makedirs(temp_dir, exist_ok=True)
+    file_path = os.path.join(temp_dir, uploaded_file.filename)
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.file.read())
+    return file_path
