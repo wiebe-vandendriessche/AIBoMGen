@@ -1,0 +1,48 @@
+@startuml developer_sequence
+
+actor "AI Developer" as developer
+
+participant "Azure authorization" as azureAuth
+participant "Web API" as webAPI
+database "job database" as jobDB
+queue "Task queue" as taskQueue
+participant "AI worker" as aiWorker
+participant "Trivy scanner" as scanner
+database "Minio object storage" as minioStorage
+
+developer -> azureAuth: Request access token
+azureAuth -> developer: Access token
+
+developer -> webAPI: Submit job (model, dataset, datadefinition)
+webAPI -> jobDB: Store job-user details
+webAPI -> minioStorage: Upload input files
+webAPI -> taskQueue: Add training job to queue
+
+taskQueue -> aiWorker: Assign training task
+aiWorker -> minioStorage: Download input files
+aiWorker -> aiWorker: Train model
+aiWorker -> aiWorker: Generate CycloneDX AIBOM
+aiWorker -> minioStorage: Upload output files (e.g., AIBOM, In-toto link, logs)
+aiWorker -> taskQueue: Notify job completion
+
+developer -> webAPI: Check job status
+webAPI -> jobDB: Get job-user details
+jobDB -> webAPI: Job-user details
+webAPI -> taskQueue: Get job status
+taskQueue -> webAPI: Job status
+webAPI -> developer: Job status
+
+developer -> webAPI: Retrieve artifact (AIBOM, In-toto link)
+webAPI -> jobDB: Get job-user details
+jobDB -> webAPI: Job-user details
+webAPI -> minioStorage: Download output files
+minioStorage -> webAPI: Output files
+webAPI -> developer: Output files
+
+scanner -> aiWorker: Scan AIBOM periodically
+aiWorker -> scanner: Scan results
+scanner -> minioStorage: Upload scan results
+
+
+@enduml
+

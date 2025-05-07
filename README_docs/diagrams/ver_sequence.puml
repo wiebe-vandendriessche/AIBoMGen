@@ -1,0 +1,27 @@
+@startuml verifier_sequence
+
+actor "AI User or Verifier" as verifier
+
+participant "Web API" as webAPI
+database "Minio object storage" as minioStorage
+
+verifier -> webAPI: Verify AIBOM
+webAPI -> webAPI: Check AIBOM Signtarure validity
+webAPI -> minioStorage: Get referenced In-toto link
+minioStorage -> webAPI: In-toto link
+webAPI -> webAPI: Verify In-toto link
+webAPI -> verifier: Verification result
+
+verifier -> webAPI: Verify only In-toto link
+webAPI -> minioStorage: Get In-toto link
+minioStorage -> webAPI: In-toto link
+webAPI -> webAPI: Verify In-toto link
+webAPI -> verifier: Verification result
+
+verifier -> webAPI: Verify file-upload
+webAPI -> minioStorage: Get In-toto link
+minioStorage -> webAPI: In-toto link
+webAPI -> webAPI: Compare file hash with AIBOM and/or In-toto link
+webAPI -> verifier: Verification result
+
+@enduml
