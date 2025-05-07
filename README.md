@@ -513,8 +513,8 @@ The **AI Bill of Materials (AIBoM)** is a JSON document that captures:
 - **Configuration**: Captures training parameters (e.g., epochs, batch size) and optional metadata (e.g., model name, version, description).
 - **Attestations**: References an in-toto `.link` file for artifact integrity verification.
 
-- [Example AIBoM JSON File](./examples/example_aibom.md)
-- [Example In-toto Link File](./examples/example_link.md)
+- [Example AIBoM JSON File](./README_docs/examples/example_aibom.md)
+- [Example In-toto Link File](./README_docs/examples/example_link.md)
 
 ---
 
