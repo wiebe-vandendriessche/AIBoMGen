@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 # === Azure Auth Settings Configuration ===
 class Settings(BaseSettings):
-    BACKEND_CORS_ORIGINGS: list[str | AnyHttpUrl] = ["http://localhost:8000"]
+    BACKEND_CORS_ORIGINGS: list[str | AnyHttpUrl] = ["http://localhost:8000", "http://localhost:3000"]
     OPENAPI_CLIENT_ID: str = ""
     APP_CLIENT_ID: str = ""
     
