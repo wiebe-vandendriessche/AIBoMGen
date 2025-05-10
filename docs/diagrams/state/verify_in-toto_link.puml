@@ -1,0 +1,38 @@
+@startuml State Diagram: /verify_in-toto_link
+
+note as N1
+This endpoint verifies the integrity of the .link file
+against the signed layout. It ensures that the .link file
+is valid and can be used in subsequent verification steps,
+such as verifying materials and products in MinIO.
+end note
+
+[*] --> EndpointCalled : Calls verify_in-toto_link endpoint
+EndpointCalled --> SavedLinkFile : Save uploaded link file
+SavedLinkFile --> VerifyLinkFile : Verify .link file
+
+VerifyLinkFile --> VerificationSuccess : Verification successful
+VerifyLinkFile --> InvalidSignature : Invalid signature
+VerifyLinkFile --> LayoutExpired : Layout expired
+VerifyLinkFile --> LinkNotFound : No valid link files found
+VerifyLinkFile --> ThresholdNotMet : Threshold requirements not met
+VerifyLinkFile --> ArtifactRuleViolation : Artifact rule violation
+VerifyLinkFile --> LayoutFileMissing : Signed layout file missing
+VerifyLinkFile --> LayoutVerificationError : Error verifying layout
+
+note right of VerifyLinkFile
+This state uses a shared helper function for verifying .link files.
+The same function is used in the verify_bom_and_link process.
+end note
+
+VerificationSuccess --> [*]
+InvalidSignature --> [*]
+LayoutExpired --> [*]
+LinkNotFound --> [*]
+ThresholdNotMet --> [*]
+ArtifactRuleViolation --> [*]
+LayoutFileMissing --> [*]
+LayoutVerificationError --> [*]
+
+@enduml
+
