@@ -13,11 +13,13 @@ import { AlertCircle } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslations } from "next-intl";
 
 const Profile = () => {
   const { instance, accounts } = useMsal();
   const [profile, setProfile] = useState<any>(null);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const t = useTranslations("Profile");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -71,26 +73,24 @@ const Profile = () => {
   // If no account is logged in, show the Guest Profile
   if (accounts.length === 0) {
     return (
-    <div className="p-4 flex justify-center">
+      <div className="p-4 flex justify-center">
         <Card className="w-full max-w-xl">
           <CardHeader className="flex flex-col items-center">
             {/* Guest Profile Picture */}
             <Avatar className="w-24 h-24 mb-4">
               <AvatarImage
                 src={"https://ui-avatars.com/api/?name=g&background=random"}
-                alt="Guest Profile Picture"
+                alt={t("guestProfilePicture")}
               />
               <AvatarFallback>G</AvatarFallback>
-          </Avatar>
-            <CardTitle>Guest User</CardTitle>
+            </Avatar>
+            <CardTitle>{t("guestUser")}</CardTitle>
           </CardHeader>
           <CardContent>
             <Alert className="mt-4" variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Warning</AlertTitle>
-              <AlertDescription>
-                Guest users cannot submit jobs. They can only verify BOMs or links.
-              </AlertDescription>
+              <AlertTitle>{t("warning")}</AlertTitle>
+              <AlertDescription>{t("guestWarning")}</AlertDescription>
             </Alert>
           </CardContent>
         </Card>
@@ -123,14 +123,13 @@ const Profile = () => {
   }
 
   // Logged-in user profile
-  return (
+    return (
     <div className="p-4 flex justify-center">
       <Card className="w-full max-w-xl">
         <CardHeader className="flex flex-col items-center">
-          {/* Profile Picture */}
           <Avatar className="w-24 h-24 mb-4">
             {profilePicture ? (
-              <AvatarImage src={profilePicture} alt="Profile Picture" />
+              <AvatarImage src={profilePicture} alt={t("profilePicture")} />
             ) : (
               <AvatarFallback>{profile.displayName.charAt(0)}</AvatarFallback>
             )}
@@ -139,19 +138,19 @@ const Profile = () => {
           <CardDescription>{profile.mail || profile.userPrincipalName}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p><strong>Email:</strong> {profile.mail || profile.userPrincipalName}</p>
-          {profile.jobTitle && <p><strong>Job Title:</strong> {profile.jobTitle}</p>}
-          {profile.department && <p><strong>Department:</strong> {profile.department}</p>}
-          {profile.officeLocation && <p><strong>Office Location:</strong> {profile.officeLocation}</p>}
-          {profile.mobilePhone && <p><strong>Mobile Phone:</strong> {profile.mobilePhone}</p>}
+          <p><strong>{t("email")}:</strong> {profile.mail || profile.userPrincipalName}</p>
+          {profile.jobTitle && <p><strong>{t("jobTitle")}:</strong> {profile.jobTitle}</p>}
+          {profile.department && <p><strong>{t("department")}:</strong> {profile.department}</p>}
+          {profile.officeLocation && <p><strong>{t("officeLocation")}:</strong> {profile.officeLocation}</p>}
+          {profile.mobilePhone && <p><strong>{t("mobilePhone")}:</strong> {profile.mobilePhone}</p>}
           {profile.businessPhones?.[0] && (
-            <p><strong>Business Phone:</strong> {profile.businessPhones[0]}</p>
+            <p><strong>{t("businessPhone")}:</strong> {profile.businessPhones[0]}</p>
           )}
           {profile.preferredLanguage && (
-            <p><strong>Preferred Language:</strong> {profile.preferredLanguage}</p>
+            <p><strong>{t("preferredLanguage")}:</strong> {profile.preferredLanguage}</p>
           )}
-          {profile.country && <p><strong>Country/Region:</strong> {profile.country}</p>}
-          {profile.city && <p><strong>City:</strong> {profile.city}</p>}
+          {profile.country && <p><strong>{t("country")}:</strong> {profile.country}</p>}
+          {profile.city && <p><strong>{t("city")}:</strong> {profile.city}</p>}
         </CardContent>
       </Card>
     </div>

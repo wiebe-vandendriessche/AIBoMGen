@@ -33,7 +33,7 @@ const items = [
 
 
 const AppSidebar = () => {
-    const t = useTranslations('HomePage');
+    const t = useTranslations("AppSidebar");
 
     return (
         <Sidebar collapsible="icon">
@@ -43,7 +43,7 @@ const AppSidebar = () => {
                         <SidebarMenuButton asChild>
                             <Link href="/">
                                 <Image src="/logo.svg" alt="logo" width={30} height={30} />
-                                <span>{t('title')}</span>
+                                <span>{t("title")}</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -54,7 +54,7 @@ const AppSidebar = () => {
 
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>{t('title')}</SidebarGroupLabel>
+                    <SidebarGroupLabel>{t("mainMenu")}</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {items.map((item) => (
@@ -62,10 +62,10 @@ const AppSidebar = () => {
                                     <SidebarMenuButton asChild>
                                         <Link href={item.url}>
                                             <item.icon />
-                                            <span>{item.title}</span>
+                                            <span>{t(item.title)}</span>
                                         </Link>
                                     </SidebarMenuButton>
-                                    {item.title === 'Inbox' && (
+                                    {item.title === "Inbox" && (
                                         <SidebarMenuBadge>25</SidebarMenuBadge>
                                     )}
                                 </SidebarMenuItem>
@@ -74,9 +74,9 @@ const AppSidebar = () => {
                     </SidebarGroupContent>
                 </SidebarGroup>
                 <SidebarGroup>
-                    <SidebarGroupLabel>Training Jobs</SidebarGroupLabel>
+                    <SidebarGroupLabel>{t("trainingJobs")}</SidebarGroupLabel>
                     <SidebarGroupAction>
-                        <Plus /> <span className="sr-only">Add Job</span>
+                        <Plus /> <span className="sr-only">{t("addJob")}</span>
                     </SidebarGroupAction>
                     <SidebarGroupContent>
                         <SidebarMenu>
@@ -84,7 +84,7 @@ const AppSidebar = () => {
                                 <SidebarMenuButton asChild>
                                     <Link href="/jobs/all">
                                         <Projector />
-                                        <span>See all Jobs</span>
+                                        <span>{t("seeAllJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
@@ -94,7 +94,7 @@ const AppSidebar = () => {
                                     <CollapsibleTrigger asChild>
                                         <SidebarMenuButton>
                                             <BrainCircuit />
-                                            <span>My Jobs</span>
+                                            <span>{t("myJobs")}</span>
                                             <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
                                         </SidebarMenuButton>
                                     </CollapsibleTrigger>
@@ -104,7 +104,7 @@ const AppSidebar = () => {
                                                 <SidebarMenuSubButton asChild>
                                                     <Link href="/jobs/1">
                                                         <BrainCircuit />
-                                                        <span>Job 1</span>
+                                                        <span>{t("job1")}</span>
                                                     </Link>
                                                 </SidebarMenuSubButton>
                                             </SidebarMenuSubItem>
@@ -112,7 +112,7 @@ const AppSidebar = () => {
                                                 <SidebarMenuSubButton asChild>
                                                     <Link href="/jobs/2">
                                                         <BrainCircuit />
-                                                        <span>Job 2</span>
+                                                        <span>{t("job2")}</span>
                                                     </Link>
                                                 </SidebarMenuSubButton>
                                             </SidebarMenuSubItem>
@@ -123,7 +123,6 @@ const AppSidebar = () => {
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
-
             </SidebarContent>
             <SidebarFooter>
                 <SidebarMenu>
@@ -135,9 +134,9 @@ const AppSidebar = () => {
                                 </SidebarMenuButton>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Profile</DropdownMenuItem>
-                                <DropdownMenuItem>Account</DropdownMenuItem>
-                                <DropdownMenuItem>Logout</DropdownMenuItem>
+                                <DropdownMenuItem>{t("profile")}</DropdownMenuItem>
+                                <DropdownMenuItem>{t("account")}</DropdownMenuItem>
+                                <DropdownMenuItem>{t("logout")}</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </SidebarMenuItem>

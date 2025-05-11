@@ -17,10 +17,12 @@ import { SidebarTrigger } from "./ui/sidebar";
 import { useMsal } from "@azure/msal-react";
 import { loginRequest } from "./configurations/msalConfig";
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 const Navbar = () => {
     const { theme, setTheme } = useTheme();
     const { instance, accounts } = useMsal();
+    const t = useTranslations("Navbar");
 
     const [user, setUser] = useState<{ name: string; picture: string }>({
         name: "Guest",
@@ -165,25 +167,25 @@ const Navbar = () => {
             {/* Left side of the navbar */}
             <SidebarTrigger />
             <div className="flex items-center gap-4">
-                <Link href="/">Dashboard</Link>
+                <Link href="/">{t("dashboard")}</Link>
                 {/* THEME MENU */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="icon">
                             <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                             <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                            <span className="sr-only">Toggle theme</span>
+                            <span className="sr-only">{t("toggleTheme")}</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setTheme("light")}>
-                            Light
+                            {t("light")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTheme("dark")}>
-                            Dark
+                            {t("dark")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTheme("system")}>
-                            System
+                            {t("system")}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -201,28 +203,30 @@ const Navbar = () => {
                         <DropdownMenuItem asChild>
                             <Link href="/profile">
                                 <User className="h-[1.2rem] w-[1.2rem] mr-2" />
-                                Profile
+                                {t("profile")}
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/settings">
                                 <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
-                                Settings
+                                {t("settings")}
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                             <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
-                            Logout
+                            {t("logout")}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 {/* LOGIN BUTTON */}
                 {user.name === "Guest" && (
-                    <Button onClick={handleLogin} variant="outline" >Login</Button>
+                    <Button onClick={handleLogin} variant="outline">
+                        {t("login")}
+                    </Button>
                 )}
                 {/* TEST JOB STATUS BUTTON */}
                 <Button onClick={testJobStatus} variant="outline">
-                    Test Job Status
+                    {t("testJobStatus")}
                 </Button>
             </div>
         </nav>

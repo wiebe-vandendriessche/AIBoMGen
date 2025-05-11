@@ -14,6 +14,8 @@ function CollapsibleTrigger({
   return (
     <CollapsiblePrimitive.CollapsibleTrigger
       data-slot="collapsible-trigger"
+      className="cursor-pointer" // Add cursor-pointer here
+
       {...props}
     />
   )

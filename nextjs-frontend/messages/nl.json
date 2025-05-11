@@ -1,6 +1,67 @@
 {
     "HomePage": {
-        "title": "Welkom",
-        "about": "Nederlandse vertaling van de homepagina van de applicatie."    
+        "title": "Welkom op de startpagina",
+        "about": "Dit is de startpagina van onze applicatie.",
+        "test": "Test",
+        "section1": "Inhoud sectie 1",
+        "section2": "Inhoud sectie 2",
+        "section3": "Inhoud sectie 3",
+        "section4": "Inhoud sectie 4",
+        "section5": "Inhoud sectie 5"
+    },
+    "Profile": {
+        "guestUser": "Gastgebruiker",
+        "guestProfilePicture": "Gastprofielafbeelding",
+        "warning": "Waarschuwing",
+        "guestWarning": "U bent ingelogd als gast. U kunt alleen verificatiefuncties gebruiken.",
+        "profilePicture": "Profielfoto",
+        "email": "E-mail",
+        "jobTitle": "Functietitel",
+        "department": "Afdeling",
+        "officeLocation": "Kantoorlocatie",
+        "mobilePhone": "Mobiele telefoon",
+        "businessPhone": "Zakelijke telefoon",
+        "preferredLanguage": "Voorkeurstaal",
+        "country": "Land/Regio",
+        "city": "Stad"
+    },
+    "Settings": {
+        "title": "Instellingen",
+        "description": "Beheer uw voorkeuren voor de applicatie.",
+        "theme": "Thema",
+        "light": "Licht",
+        "dark": "Donker",
+        "system": "Systeem",
+        "language": "Taal"
+    },
+    "Navbar": {
+        "dashboard": "Dashboard",
+        "toggleTheme": "Thema wisselen",
+        "light": "Licht",
+        "dark": "Donker",
+        "system": "Systeem",
+        "profile": "Profiel",
+        "settings": "Instellingen",
+        "logout": "Uitloggen",
+        "login": "Inloggen",
+        "testJobStatus": "Test Taakstatus"
+    },
+    "AppSidebar": {
+        "title": "AIBoMGen",
+        "mainMenu": "Hoofdmenu",
+        "Home": "Startpagina",
+        "Inbox": "Inbox",
+        "Calendar": "Agenda",
+        "Search": "Zoeken",
+        "Settings": "Instellingen",
+        "trainingJobs": "Trainingsopdrachten",
+        "addJob": "Opdracht toevoegen",
+        "seeAllJobs": "Bekijk alle opdrachten",
+        "myJobs": "Mijn opdrachten",
+        "job1": "Opdracht 1",
+        "job2": "Opdracht 2",
+        "profile": "Profiel",
+        "account": "Account",
+        "logout": "Uitloggen"
     }
 }

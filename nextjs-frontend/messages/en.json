@@ -1,6 +1,66 @@
 {
     "HomePage": {
         "title": "Welcome to the Home Page",
-        "about": "This is the home page of our application."
+        "about": "This is the home page of our application.",
+        "section1": "Section 1 Content",
+        "section2": "Section 2 Content",
+        "section3": "Section 3 Content",
+        "section4": "Section 4 Content",
+        "section5": "Section 5 Content"
+    },
+    "Profile": {
+        "guestUser": "Guest User",
+        "guestProfilePicture": "Guest Profile Picture",
+        "warning": "Warning",
+        "guestWarning": "You are logged in as a guest. You are only able to use verification features.",
+        "profilePicture": "Profile Picture",
+        "email": "Email",
+        "jobTitle": "Job Title",
+        "department": "Department",
+        "officeLocation": "Office Location",
+        "mobilePhone": "Mobile Phone",
+        "businessPhone": "Business Phone",
+        "preferredLanguage": "Preferred Language",
+        "country": "Country/Region",
+        "city": "City"
+    },
+    "Settings": {
+        "title": "Settings",
+        "description": "Manage your application preferences.",
+        "theme": "Theme",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System",
+        "language": "Language"
+    },
+    "Navbar": {
+        "dashboard": "Dashboard",
+        "toggleTheme": "Toggle theme",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System",
+        "profile": "Profile",
+        "settings": "Settings",
+        "logout": "Logout",
+        "login": "Login",
+        "testJobStatus": "Test Job Status"
+    },
+    "AppSidebar": {
+        "title": "AIBoMGen",
+        "mainMenu": "Main Menu",
+        "Home": "Home",
+        "Inbox": "Inbox",
+        "Calendar": "Calendar",
+        "Search": "Search",
+        "Settings": "Settings",
+        "trainingJobs": "Training Jobs",
+        "addJob": "Add Job",
+        "seeAllJobs": "See all Jobs",
+        "myJobs": "My Jobs",
+        "job1": "Job 1",
+        "job2": "Job 2",
+        "profile": "Profile",
+        "account": "Account",
+        "logout": "Logout"
     }
 }

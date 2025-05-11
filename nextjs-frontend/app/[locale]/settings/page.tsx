@@ -19,38 +19,40 @@ import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
+import { useTranslations } from "next-intl";
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const t = useTranslations("Settings");
 
   return (
     <div className="p-4 flex justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Settings</CardTitle>
-          <CardDescription>Manage your application preferences</CardDescription>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mt-4">
-            <h2 className="text-lg font-semibold mb-2">Theme</h2>
+            <h2 className="text-lg font-semibold mb-2">{t("theme")}</h2>
             {/* THEME SELECT */}
             <Select onValueChange={(value) => setTheme(value)} value={theme}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Theme" />
+                <SelectValue placeholder={t("theme")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="system">System</SelectItem>
+                <SelectItem value="light">{t("light")}</SelectItem>
+                <SelectItem value="dark">{t("dark")}</SelectItem>
+                <SelectItem value="system">{t("system")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-2">Language</h2>
+            <h2 className="text-lg font-semibold mb-2">{t("language")}</h2>
             {/* LANGUAGE SELECT */}
-            <LocaleSwitcher/>
+            <LocaleSwitcher />
           </div>
         </CardContent>
       </Card>
