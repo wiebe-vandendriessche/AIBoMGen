@@ -31,10 +31,7 @@ const Navbar = () => {
     useEffect(() => {
         if (accounts.length > 0) {
             const account = accounts[0];
-            setUser({
-                name: account.name || "Guest",
-                picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback avatar
-            });
+            fetchProfilePicture(account);
         } else {
             setUser({
                 name: "Guest",
@@ -43,17 +40,67 @@ const Navbar = () => {
         }
     }, [accounts]);
 
+    const fetchProfilePicture = async (account: any) => {
+        try {
+            // Request a token for Microsoft Graph
+            const tokenResponse = await instance.acquireTokenSilent({
+                scopes: ["User.Read"], // Only request Microsoft Graph scopes
+                account,
+            });
+
+            const accessToken = tokenResponse.accessToken;
+
+            // Fetch the profile picture from Microsoft Graph
+            const response = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const pictureUrl = URL.createObjectURL(blob);
+
+                setUser({
+                    name: account.name || "Guest",
+                    picture: pictureUrl, // Set the profile picture URL
+                });
+            } else if (response.status === 401) {
+                console.error("Unauthorized: Ensure the User.Read permission is granted.");
+                setUser({
+                    name: account.name || "Guest",
+                    picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+                });
+            } else {
+                console.warn("No profile picture found for the user. Falling back to UI Avatars.");
+                setUser({
+                    name: account.name || "Guest",
+                    picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching profile picture:", error);
+            setUser({
+                name: account.name || "Guest",
+                picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+            });
+        }
+    };
+
     // Handle login
     const handleLogin = async () => {
         try {
-            const loginResponse = await instance.loginPopup(loginRequest);
+            // Step 1: Login with OpenID Connect scopes
+            const loginResponse = await instance.loginPopup({
+                scopes: ["openid", "profile", "offline_access"], // Only OpenID Connect scopes
+            });
+
             const account = loginResponse.account;
             if (account) {
                 instance.setActiveAccount(account); // Set the active account after login
-                setUser({
-                    name: account.name || "Guest",
-                    picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`,
-                });
+
+                // Step 2: Fetch profile picture using Microsoft Graph token
+                fetchProfilePicture(account);
             }
         } catch (error) {
             console.error("Login failed:", error);
@@ -83,15 +130,15 @@ const Navbar = () => {
                 return;
             }
 
-            // Acquire token silently using the scope defined in msalConfig
+            // Request a token for your custom API
             const tokenResponse = await instance.acquireTokenSilent({
-                ...loginRequest, // Use the loginRequest object from msalConfig
+                scopes: ["api://a65becdd-c8b9-4a90-9c8a-9d9c526aa130/user_impersonation"], // Only request custom API scopes
                 account: activeAccount,
             });
 
             const accessToken = tokenResponse.accessToken;
 
-            // Call the job status endpoint with a non-existing job ID
+            // Call the job status endpoint
             const response = await fetch("http://localhost:8000/job_status/123e4567-e89b-12d3-a456-426614174000", {
                 method: "GET",
                 headers: {
@@ -151,13 +198,17 @@ const Navbar = () => {
                     <DropdownMenuContent sideOffset={10}>
                         <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            <User className="h-[1.2rem] w-[1.2rem] mr-2" />
-                            Profile
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile">
+                                <User className="h-[1.2rem] w-[1.2rem] mr-2" />
+                                Profile
+                            </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
-                            Settings
+                        <DropdownMenuItem asChild>
+                            <Link href="/settings">
+                                <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
+                                Settings
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                             <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
@@ -167,7 +218,7 @@ const Navbar = () => {
                 </DropdownMenu>
                 {/* LOGIN BUTTON */}
                 {user.name === "Guest" && (
-                    <Button onClick={handleLogin}>Login</Button>
+                    <Button onClick={handleLogin} variant="outline" >Login</Button>
                 )}
                 {/* TEST JOB STATUS BUTTON */}
                 <Button onClick={testJobStatus} variant="outline">

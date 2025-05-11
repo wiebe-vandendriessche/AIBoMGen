@@ -36,9 +36,12 @@ export const msalConfig: Configuration = {
       logLevel: LogLevel.Verbose,
       piiLoggingEnabled: false,
     },
-  },   
+  },
 };
 
 export const loginRequest = {
-  scopes: ["api://a65becdd-c8b9-4a90-9c8a-9d9c526aa130/user_impersonation"], // Replace with the Backend API App's scope
+  scopes: [
+    "api://a65becdd-c8b9-4a90-9c8a-9d9c526aa130/user_impersonation", // Replace with the Backend API App's scope
+    "User.Read", // Required for fetching profile photo
+  ],
 };

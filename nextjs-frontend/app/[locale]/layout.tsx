@@ -8,6 +8,9 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cookies } from "next/headers";
 import MsalProviderWrapper from "@/components/providers/MsalProviderWrapper";
+import { NextIntlClientProvider, hasLocale } from 'next-intl';
+import { notFound } from 'next/navigation';
+import { routing } from '@/i18n/routing';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,15 +30,25 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  params
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
 
+  // Ensure that the incoming `locale` is valid
+  const { locale } = await params;
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+
+  const messages = (await import(`../../messages/${locale}.json`)).default;
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex`}
       >
@@ -43,19 +56,19 @@ export default async function RootLayout({
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
         >
           <MsalProviderWrapper>
-
-            <SidebarProvider defaultOpen={defaultOpen}>
-              <AppSidebar />
-              <main className="w-full">
-                <Navbar />
-                <div className="px-4">
-                  {children}
-                </div>
-              </main>
-            </SidebarProvider>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <SidebarProvider defaultOpen={defaultOpen}>
+                <AppSidebar />
+                <main className="w-full">
+                  <Navbar />
+                  <div className="px-4">
+                    {children}
+                  </div>
+                </main>
+              </SidebarProvider>
+            </NextIntlClientProvider>
           </MsalProviderWrapper>
 
         </ThemeProvider>

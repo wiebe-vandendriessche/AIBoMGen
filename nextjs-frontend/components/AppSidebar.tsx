@@ -21,6 +21,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { useTranslations } from "next-intl";
 
 const items = [
     { title: 'Home', url: '/', icon: Home },
@@ -32,6 +33,8 @@ const items = [
 
 
 const AppSidebar = () => {
+    const t = useTranslations('HomePage');
+
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader className="py-4">
@@ -40,7 +43,7 @@ const AppSidebar = () => {
                         <SidebarMenuButton asChild>
                             <Link href="/">
                                 <Image src="/logo.svg" alt="logo" width={30} height={30} />
-                                <span>AIBoMGen</span>
+                                <span>{t('title')}</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -51,7 +54,7 @@ const AppSidebar = () => {
 
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>Application</SidebarGroupLabel>
+                    <SidebarGroupLabel>{t('title')}</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {items.map((item) => (
