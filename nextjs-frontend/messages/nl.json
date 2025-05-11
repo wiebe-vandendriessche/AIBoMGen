@@ -1,13 +1,17 @@
 {
     "HomePage": {
-        "title": "Welkom op de startpagina",
-        "about": "Dit is de startpagina van onze applicatie.",
-        "test": "Test",
-        "section1": "Inhoud sectie 1",
-        "section2": "Inhoud sectie 2",
-        "section3": "Inhoud sectie 3",
-        "section4": "Inhoud sectie 4",
-        "section5": "Inhoud sectie 5"
+        "heroTitle": "Bouw Vertrouwbare AI met AIBoMGen",
+        "heroDescription": "AIBoMGen zorgt voor betrouwbaarheid en integriteit in AI-modeltraining met geautomatiseerde AI Bill of Materials (AIBoM) generatie.",
+        "heroExploreFeatures": "Ontdek Functies",
+        "heroRequestTrainingJob": "Vraag een Trainingsopdracht aan",
+        "featuresTitle": "Waarom Kiezen voor AIBoMGen?",
+        "featuresDescription": "AIBoMGen is ontworpen om betrouwbaarheid, integriteit en reproduceerbaarheid in AI-modeltraining te garanderen.",
+        "featureTrustabilityTitle": "Betrouwbaarheid",
+        "featureTrustabilityDescription": "Genereer cryptografisch ondertekende AI Bill of Materials (AIBoMs) voor trainingsprocessen die niet kunnen worden gemanipuleerd.",
+        "featureArtifactManagementTitle": "Artifactbeheer",
+        "featureArtifactManagementDescription": "Beheer datasets, modellen, logs en andere artifacts efficiënt met geïntegreerde opslagoplossingen.",
+        "featureScalabilityTitle": "Schaalbaarheid",
+        "featureScalabilityDescription": "Maak gebruik van gedistribueerde training met Celery-workers voor schaalbare en efficiënte uitvoering."
     },
     "Profile": {
         "guestUser": "Gastgebruiker",
@@ -44,7 +48,8 @@
         "settings": "Instellingen",
         "logout": "Uitloggen",
         "login": "Inloggen",
-        "testJobStatus": "Test Taakstatus"
+        "testJobStatus": "Test Taakstatus",
+        "guest": "Gast"
     },
     "AppSidebar": {
         "title": "AIBoMGen",

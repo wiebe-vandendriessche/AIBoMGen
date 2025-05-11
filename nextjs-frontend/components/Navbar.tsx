@@ -25,8 +25,8 @@ const Navbar = () => {
     const t = useTranslations("Navbar");
 
     const [user, setUser] = useState<{ name: string; picture: string }>({
-        name: "Guest",
-        picture: "https://ui-avatars.com/api/?name=g&background=random", // Default guest profile picture
+        name: t("guest"),
+        picture: "https://ui-avatars.com/api/?name=g", // Default guest profile picture
     });
 
     // Update user state when accounts change
@@ -36,8 +36,8 @@ const Navbar = () => {
             fetchProfilePicture(account);
         } else {
             setUser({
-                name: "Guest",
-                picture: "https://ui-avatars.com/api/?name=g&background=random", // Reset to guest profile picture
+                name: t("guest"),
+                picture: "https://ui-avatars.com/api/?name=g", // Reset to guest profile picture
             });
         }
     }, [accounts]);
@@ -64,27 +64,27 @@ const Navbar = () => {
                 const pictureUrl = URL.createObjectURL(blob);
 
                 setUser({
-                    name: account.name || "Guest",
+                    name: account.name || t("guest"),
                     picture: pictureUrl, // Set the profile picture URL
                 });
             } else if (response.status === 401) {
                 console.error("Unauthorized: Ensure the User.Read permission is granted.");
                 setUser({
-                    name: account.name || "Guest",
-                    picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+                    name: account.name || t("guest"),
+                    picture: `https://ui-avatars.com/api/?name=${account.name}`, // Fallback to UI Avatars
                 });
             } else {
                 console.warn("No profile picture found for the user. Falling back to UI Avatars.");
                 setUser({
-                    name: account.name || "Guest",
-                    picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+                    name: account.name || t("guest"),
+                    picture: `https://ui-avatars.com/api/?name=${account.name}`, // Fallback to UI Avatars
                 });
             }
         } catch (error) {
             console.error("Error fetching profile picture:", error);
             setUser({
-                name: account.name || "Guest",
-                picture: `https://ui-avatars.com/api/?name=${account.name}&background=random`, // Fallback to UI Avatars
+                name: account.name || t("guest"),
+                picture: `https://ui-avatars.com/api/?name=${account.name}`, // Fallback to UI Avatars
             });
         }
     };
@@ -115,7 +115,7 @@ const Navbar = () => {
             await instance.logoutPopup();
             instance.setActiveAccount(null); // Clear the active account after logout
             setUser({
-                name: "Guest",
+                name: t("guest"),
                 picture: "https://ui-avatars.com/api/?name=g&background=random", // Reset to guest profile picture
             });
         } catch (error) {
@@ -163,32 +163,11 @@ const Navbar = () => {
 
 
     return (
-        <nav className="p-4 flex items-center justify-between">
+        <nav className="p-4 top-0 flex items-center justify-between fix sticky bg-background/50 backdrop-blur-3xl z-20">
             {/* Left side of the navbar */}
             <SidebarTrigger />
             <div className="flex items-center gap-4">
-                <Link href="/">{t("dashboard")}</Link>
-                {/* THEME MENU */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                            <span className="sr-only">{t("toggleTheme")}</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setTheme("light")}>
-                            {t("light")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTheme("dark")}>
-                            {t("dark")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setTheme("system")}>
-                            {t("system")}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <span className="text">{user.name}</span>
                 {/* USER MENU */}
                 <DropdownMenu>
                     <DropdownMenuTrigger>
@@ -219,15 +198,32 @@ const Navbar = () => {
                     </DropdownMenuContent>
                 </DropdownMenu>
                 {/* LOGIN BUTTON */}
-                {user.name === "Guest" && (
-                    <Button onClick={handleLogin} variant="outline">
+                {user.name === t("guest") && (
+                    <Button onClick={handleLogin} variant="default">
                         {t("login")}
                     </Button>
                 )}
-                {/* TEST JOB STATUS BUTTON */}
-                <Button onClick={testJobStatus} variant="outline">
-                    {t("testJobStatus")}
-                </Button>
+                {/* THEME MENU */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                            <span className="sr-only">{t("toggleTheme")}</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setTheme("light")}>
+                            {t("light")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>
+                            {t("dark")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>
+                            {t("system")}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </nav>
     );

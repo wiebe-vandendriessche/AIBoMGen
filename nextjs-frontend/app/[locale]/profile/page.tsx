@@ -79,7 +79,7 @@ const Profile = () => {
             {/* Guest Profile Picture */}
             <Avatar className="w-24 h-24 mb-4">
               <AvatarImage
-                src={"https://ui-avatars.com/api/?name=g&background=random"}
+                src={"https://ui-avatars.com/api/?name=g"}
                 alt={t("guestProfilePicture")}
               />
               <AvatarFallback>G</AvatarFallback>
@@ -87,7 +87,7 @@ const Profile = () => {
             <CardTitle>{t("guestUser")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Alert className="mt-4" variant="destructive">
+            <Alert className="mt-4 border-red-400" variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>{t("warning")}</AlertTitle>
               <AlertDescription>{t("guestWarning")}</AlertDescription>
