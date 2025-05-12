@@ -163,10 +163,9 @@ const Navbar = () => {
 
 
     return (
-        <nav className="p-4 top-0 flex items-center justify-between fix sticky bg-background/50 backdrop-blur-3xl z-20">
-            {/* Left side of the navbar */}
+        <nav className="p-4 top-0 flex items-center justify-between sticky bg-background/50 backdrop-blur-3xl z-20">            {/* Left side of the navbar */}
             <SidebarTrigger />
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-shrink-0">
                 <span className="text">{user.name}</span>
                 {/* USER MENU */}
                 <DropdownMenu>
@@ -176,7 +175,7 @@ const Navbar = () => {
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent sideOffset={10}>
+                    <DropdownMenuContent sideOffset={4}>
                         <DropdownMenuLabel>{user.name}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>

@@ -362,13 +362,13 @@ function SidebarSeparator({
     <Separator
       data-slot="sidebar-separator"
       data-sidebar="separator"
-      className={cn("bg-sidebar-border mx-2 w-auto", className)}
+      className={cn("bg-sidebar-border w-auto", className)}
       {...props}
     />
   )
 }
 
-function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
+function  SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-content"

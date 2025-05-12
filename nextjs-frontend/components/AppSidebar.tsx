@@ -1,6 +1,6 @@
 "use client"
 
-import { BrainCircuit, Calendar, ChevronDown, ChevronUp, Home, Inbox, Plus, Projector, Search, Settings, User2 } from "lucide-react";
+import { BrainCircuit, Calendar, ChevronDown, ChevronUp, Cookie, GlobeLock, Home, Inbox, Plus, Projector, Search, Settings, User2 } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -86,7 +86,9 @@ const AppSidebar = () => {
     const { state } = useSidebar(); // Get the sidebar state (expanded or collapsed)
 
     return (
-        <Sidebar collapsible="icon">
+        <Sidebar
+            collapsible="icon"
+            className="fixed top-0 left-0 h-full w-64 bg-background z-30">
             <SidebarHeader className="py-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -203,6 +205,7 @@ const AppSidebar = () => {
                             <DrawerTrigger asChild>
                                 <SidebarMenuButton asChild>
                                     <Link href="#">
+                                        <GlobeLock/>
                                         {t("privacyStatement")}
                                     </Link>
                                 </SidebarMenuButton>
@@ -222,6 +225,7 @@ const AppSidebar = () => {
                             <DrawerTrigger asChild>
                                 <SidebarMenuButton asChild>
                                     <Link href="#">
+                                        <Cookie />
                                         {t("cookieMenu")}
                                     </Link>
                                 </SidebarMenuButton>

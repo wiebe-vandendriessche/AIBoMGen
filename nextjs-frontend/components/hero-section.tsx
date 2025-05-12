@@ -13,7 +13,7 @@ export default function HeroSection() {
         <>
             <main className="overflow-x-hidden">
                 <section>
-                    <div className="pb-16 pt-8 md:pb-24 lg:pb-40 lg:pt-32">
+                    <div className="pb-10 pt-8 md:pb-16 lg:pb-24 lg:pt-32">
                         <div className="relative mx-auto flex max-w-6xl flex-col px-6 lg:block">
                             <div className="mx-auto max-w-lg text-center lg:ml-0 lg:w-1/2 lg:text-left">
                                 <h1 className="mt-8 max-w-md text-balance text-4xl font-medium md:text-5xl lg:mt-16 xl:text-6xl">{t('heroTitle')}</h1>
