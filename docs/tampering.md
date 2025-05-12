@@ -41,7 +41,7 @@ A malicious actor could tamper with the dataset files (e.g., `.zip` or `.csv`) o
 - **Hash-Based Integrity Verification:** The worker hashes the dataset files and includes these hashes in the BOM. This allows users to verify the integrity of the dataset by comparing the hash of their dataset files with the hash recorded in the BOM. If the hashes do not match, the dataset is flagged as tampered.
 - **Controlled Environment:** Dataset processing is performed in an isolated environment to prevent any potential malicious data from affecting the broader system.
 
-**Remaining Risks**
+**Remaining risks**
 
 - If the input files themselves are malicious but valid (e.g., a biased dataset), your system cannot detect this. This requires external auditing or dataset validation mechanisms.
 
