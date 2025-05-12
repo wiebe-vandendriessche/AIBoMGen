@@ -19,7 +19,7 @@ A malicious actor could embed a `Lambda` layer inside a TensorFlow/Keras model f
 - **Restricted Model Loading Environment:** Models are loaded in a controlled and isolated environment to minimize the impact of potential malicious code. This ensures that even if a malicious model is loaded, it cannot affect the broader system.
 - **Model Integrity Verification:** When the AIBOM is generated, all materials, including the model, are hashed and included in the BOM. This ensures that any injected malicious code in the model file is also hashed and recorded. Additionally, the application verifies the integrity of the model by comparing its hash against a trusted reference before loading it. If the hashes do not match, the model is flagged as tampered and rejected.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If a malicious actor finds a vulnerability in TensorFlow's `safe_mode` implementation, they could potentially bypass the safeguard.
 - The system cannot detect malicious intent embedded in the model's architecture or weights (e.g., backdoors or adversarial triggers). External auditing of the model is required.
@@ -57,7 +57,7 @@ A malicious actor could interfere with the training process by modifying trainin
 - **In-Toto Verification:** The run_training step is attested using in-toto, and the `.link` file includes hashes of all input and output artifacts. Users can verify the `.link` file against the signed layout to ensure the training process followed the expected steps.
 - **CycloneDX BOM:** The CycloneDX BOM includes metadata about the training environment (e.g., Python version, TensorFlow version), ensuring the environment is consistent and trusted.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If the developer gains access to the worker container (e.g., through a vulnerability in the container runtime), they could tamper with the training process. This risk is partially mitigated by:
     - **Read-Only Containers:** The docker-compose.yml specifies `read_only: true` for workers, limiting write access within the container.
@@ -77,7 +77,7 @@ A malicious actor could tamper with the generated artifacts (e.g., trained model
 - **Secure Storage:** Artifacts are stored in a secure MinIO bucket with restricted access to prevent unauthorized modifications.
 - **Cryptographic Signing:** The AIBoM and in-toto .link files are cryptographically signed to ensure their authenticity and integrity.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If the storage system (e.g., MinIO) is compromised, attackers could tamper with the artifacts despite secure storage. This is partially mitigated by:
     - The API provides an endpoint to check the hashes of the MinIO artifacts with the recorded hashes. If they fail that means someone tampered in the MinIO storage. However they can not update the link file to match their tampered artifacts because they do not have access to the platform private key to correctly resign the link file.
@@ -96,7 +96,7 @@ A malicious actor could tamper with the AIBoM to falsify information about the t
 - **Cryptographic Signing:** The AIBoM is signed using the system's private key. Users can verify the signature using the public key to ensure the AIBoM has not been tampered with.
 - **Hash Verification:** The AIBoM includes hashes of all input and output artifacts, allowing users to verify their integrity.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If the private key used for signing the AIBoM is compromised, attackers could generate falsified AIBoMs that appear legitimate.
 - The system does not currently enforce key rotation or hardware-based key storage, which could reduce the risk of key compromise.
@@ -114,7 +114,7 @@ A malicious actor could gain unauthorized access to artifacts (e.g., datasets, m
 - **Authentication and Authorization:** The system uses Azure OAuth for secure API calls, ensuring that only authenticated and authorized users can access the system.
 - **Access Control:** MinIO buckets and other system components can be configured with strict access controls when deployed to prevent unauthorized access.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If an attacker exploits a zero-day vulnerability in the authentication or authorization mechanisms, they could gain unauthorized access.
 - The system does not yet have alerting for suspicious activity implemented.
@@ -132,7 +132,7 @@ A malicious actor could attempt to bypass the AIBoM generation process to avoid 
 - **Enforced AIBoM Generation:** The system automatically generates an AIBoM for every training job. Users cannot bypass this step.
 - **Controlled API:** All interactions with the system are performed through a secure API, ensuring that users cannot interfere with the AIBoM generation process.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If an attacker exploits a vulnerability in the API or worker logic, they could potentially bypass the AIBoM generation process.
 
@@ -150,7 +150,7 @@ A malicious actor could exploit vulnerabilities in the platform (e.g., API, work
 - **Read-Only Containers:** Worker containers are configured as read-only to limit the impact of potential exploits.
 - **Capability Restrictions:** Containers drop all capabilities (cap_drop: ALL) and only allow minimal capabilities (e.g., NET_BIND_SERVICE) to reduce the attack surface.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - New vulnerabilities in dependencies or container images could be exploited before they are patched.
 
@@ -167,7 +167,7 @@ A malicious actor could provide a fake .link file or AIBoM to mislead users into
 - **Cryptographic Verification:** Users can verify the authenticity of .link files and AIBoMs using the system's public key. Any tampering or forgery will result in a failed verification.
 - **Hash Verification:** The .link file and AIBoM include hashes of all input and output artifacts, ensuring that users can verify their integrity.
 
-**Remaining Risks:**
+**Remaining risks**
 
 - If the public key used for verification is replaced or tampered with, users could be misled into trusting fake files.
 - The system does not currently provide a mechanism for users to verify the authenticity of the public key itself (e.g., through a trusted certificate authority).
