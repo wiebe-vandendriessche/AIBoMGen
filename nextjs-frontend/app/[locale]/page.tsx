@@ -12,9 +12,9 @@ import Features from "@/components/features-2";
 export default function Home() {
   const t = useTranslations('HomePage');
   return (
-    <div className="overflow-x-hidden">
-      <HeroSection />
-      <Features />
-    </div>
+      <div className="overflow-x-hidden">
+        <HeroSection />
+        <Features />
+      </div>
   );
 }

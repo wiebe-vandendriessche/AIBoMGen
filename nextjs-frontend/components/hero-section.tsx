@@ -11,7 +11,7 @@ export default function HeroSection() {
 
     return (
         <>
-            <main className="overflow-x-hidden">
+            <div className="overflow-x-hidden">
                 <section>
                     <div className="pb-10 pt-8 md:pb-16 lg:pb-24 lg:pt-32">
                         <div className="relative mx-auto flex max-w-6xl flex-col px-6 lg:block">
@@ -82,7 +82,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-15 w-fit grayscale dark:invert"
-                                            src="tensorflow.svg"
+                                            src="/tensorflow.svg" // Updated to use absolute path
                                             alt="TensorFlow Logo"
                                             height="20"
                                             width="auto"
@@ -91,7 +91,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-15 w-fit filter grayscale dark:invert"
-                                            src="celery.png"
+                                            src="/celery.png" // Updated to use absolute path
                                             alt="Celery Logo"
                                             height="60"
                                             width="auto"
@@ -100,7 +100,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-5 w-fit grayscale dark:invert"
-                                            src="fastapi.png"
+                                            src="/fastapi.png" // Updated to use absolute path
                                             alt="FastAPI Logo"
                                             height="20"
                                             width="auto"
@@ -109,7 +109,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-5 w-fit grayscale dark:invert"
-                                            src="next.svg"
+                                            src="/next.svg" // Updated to use absolute path
                                             alt="Next.js Logo"
                                             height="20"
                                             width="auto"
@@ -118,7 +118,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-6 w-fit grayscale dark:invert"
-                                            src="shadcn.png"
+                                            src="/shadcn.png" // Updated to use absolute path
                                             alt="ShadCN Logo"
                                             height="30"
                                             width="auto"
@@ -127,7 +127,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-6 w-fit grayscale dark:invert"
-                                            src="minio.png"
+                                            src="/minio.png" // Updated to use absolute path
                                             alt="MinIO Logo"
                                             height="20"
                                             width="auto"
@@ -136,7 +136,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-6 w-fit grayscale dark:invert"
-                                            src="mysql.svg"
+                                            src="/mysql.svg" // Updated to use absolute path
                                             alt="MySQL Logo"
                                             height="30"
                                             width="auto"
@@ -145,7 +145,7 @@ export default function HeroSection() {
                                     <div className="flex items-center">
                                         <img
                                             className="mx-auto h-6 w-fit grayscale dark:invert"
-                                            src="docker.png"
+                                            src="/docker.png" // Updated to use absolute path
                                             alt="Docker Logo"
                                             height="20"
                                             width="auto"
@@ -168,7 +168,7 @@ export default function HeroSection() {
                         </div>
                     </div>
                 </section>
-            </main>
+            </div>
         </>
     )
 }

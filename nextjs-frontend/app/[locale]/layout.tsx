@@ -52,7 +52,7 @@ export default async function RootLayout({
   const messages = (await import(`../../messages/${locale}.json`)).default;
 
   return (
-    <html lang={locale} suppressHydrationWarning className="overflow-x-hidden">
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex`}
       >
@@ -67,14 +67,13 @@ export default async function RootLayout({
                 <AppSidebar />
                 <main className="w-full">
                   <Navbar />
-                  <div className="px-4 overflow-x-hidden">
+                  <div>
                     {children}
                   </div>
                 </main>
               </SidebarProvider>
             </NextIntlClientProvider>
           </MsalProviderWrapper>
-
         </ThemeProvider>
       </body>
     </html>
