@@ -1,22 +1,23 @@
-# This file contains a summery of most tampering possabilities and how they are (or are not) countered in my application
+# This file contains a summary of most tampering possibilities and how they are (or are not) countered in my application
 
 ## Threats
 
 ### 1. Tampering inside the uploaded model.keras or model.h5 file
 
 **Threat**
+A malicious actor could embed a `Lambda` layer inside a TensorFlow/Keras model file (`.keras` or `.h5`). The `Lambda` layer allows arbitrary Python code to be serialized and executed when the model is loaded. This could lead to remote code execution (RCE), enabling attackers to execute harmful commands on the system, such as creating reverse shells or deleting files. 
 
-A malicious actor could embed a `Lambda` layer inside a TensorFlow/Keras model file (`.keras` or `.h5`). The `Lambda` layer allows arbitrary Python code to be serialized and executed when the model is loaded. This could lead to remote code execution (RCE), enabling attackers to execute harmful commands on the system, such as creating reverse shells or deleting files.
+In the context of this platform, such an attack could be used to tamper with or disable the measurement tools responsible for generating a trustworthy AIBoM. By compromising these tools, an attacker could falsify the recorded artifacts, manipulate the training process metadata, or bypass integrity checks, undermining the trustworthiness of the entire system.
 
 **Countermeasure in the application**
 
-- **Safe Mode Loading:** The application uses TensorFlow's `safe_mode=True` option when loading models. This ensures that unsafe Lambda deserialization is disallowed, preventing arbitrary code execution during model loading. This argument is only applicable to the Keras v3 model format, so only these types of model files are allowed. Defaults to True:
+- **Safe Mode Loading:** The application uses TensorFlow's `safe_mode=True` option when loading models. According to the [TensorFlow documentation](https://www.tensorflow.org/api_docs/python/tf/keras/models/load_model), this option ensures that unsafe Lambda deserialization is disallowed, preventing arbitrary code execution during model loading. This argument is only applicable to the Keras v3 model format, so only these types of model files are allowed. The application enforces this setting by default:
 
     ```python
     model = tf.keras.models.load_model(model_path, safe_mode=True)
     ```
 
-- **Restricted Model Loading Environment:** Models are loaded in a controlled and isolated environment to minimize the impact of potential malicious code. This ensures that even if a malicious model is loaded, it cannot affect the broader system.
+- **Restricted Model Loading Environment:** Models are loaded in restricted Docker containers configured with only the necessary permissions. This minimizes the impact of potential malicious code by isolating the model loading process. Additionally, this setup can be extended with the use of sandboxes, virtual machines, or lightweight virtualization technologies such as AWS Firecracker to further enhance security and isolation.
 - **Model Integrity Verification:** When the AIBOM is generated, all materials, including the model, are hashed and included in the BOM. This ensures that any injected malicious code in the model file is also hashed and recorded. Additionally, the application verifies the integrity of the model by comparing its hash against a trusted reference before loading it. If the hashes do not match, the model is flagged as tampered and rejected.
 
 **Remaining risks**
@@ -26,7 +27,7 @@ A malicious actor could embed a `Lambda` layer inside a TensorFlow/Keras model f
 
 ---
 
-### 2. Tampering wite the dataset (.zip or .csv) or definition file
+### 2. Tampering with the dataset (.zip or .csv) or definition file
 
 **Threat**
 
@@ -38,8 +39,7 @@ A malicious actor could tamper with the dataset files (e.g., `.zip` or `.csv`) o
     - `.zip` files are carefully validated and extracted securely to ensure they contain the expected files and structure. This includes checks for malicious content such as **ZIP bombs** to prevent resource exhaustion attacks.
     - `.csv` files are checked for consistency with the dataset definition (e.g., column names, data types).
 - **Dataset Definition Validation:** The dataset definition file is parsed and validated to ensure it adheres to the expected schema. Any inconsistencies or unexpected modifications are flagged, and the process is halted.
-- **Hash-Based Integrity Verification:** The worker hashes the dataset files and includes these hashes in the BOM. This allows users to verify the integrity of the dataset by comparing the hash of their dataset files with the hash recorded in the BOM. If the hashes do not match, the dataset is flagged as tampered.
-- **Controlled Environment:** Dataset processing is performed in an isolated environment to prevent any potential malicious data from affecting the broader system.
+- **Controlled Environment:** Dataset processing is performed in an isolated Docker container, ensuring that any potential malicious data cannot affect the broader system. This isolation limits the scope of any potential attack and protects the integrity of the platform.
 
 **Remaining risks**
 
@@ -60,8 +60,9 @@ A malicious actor could interfere with the training process by modifying trainin
 **Remaining risks**
 
 - If the developer gains access to the worker container (e.g., through a vulnerability in the container runtime), they could tamper with the training process. This risk is partially mitigated by:
-    - **Read-Only Containers:** The docker-compose.yml specifies `read_only: true` for workers, limiting write access within the container.
-    - **Capability Restrictions:** Dropping all capabilities (`cap_drop: ALL`) and only allowing `NET_BIND_SERVICE` reduces the attack surface.
+    - **Read-Only Containers with Temporary Storage:** The `docker-compose.yml` file specifies `read_only: true` for workers to limit write access within the container. Additionally, a `tmpfs` mount is used to allow temporary file storage in memory, ensuring that necessary temporary files can still be created without compromising the container's read-only nature. For more details, refer to the [Docker Compose documentation on services](https://docs.docker.com/reference/compose-file/services/) and the [Docker documentation on tmpfs storage](https://docs.docker.com/engine/storage/tmpfs/).
+    - **Capability Restrictions:** Dropping all capabilities (`cap_drop: ALL`) and only allowing `NET_BIND_SERVICE` reduces the attack surface. See the [Docker documentation on capabilities](https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities) for more information.
+    - **Non-Root User:** Worker containers are configured to run as a non-root user by specifying the `user` directive in the `docker-compose.yml` file. This minimizes the impact of potential exploits by restricting access to privileged operations. For more details, refer to the [Docker documentation on user namespaces](https://docs.docker.com/engine/security/userns-remap/).
 
 ---
 
