@@ -509,7 +509,14 @@ function SidebarMenuButton({
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot : "button"
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, setOpenMobile } = useSidebar()
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+    props.onClick?.(event)
+  }
 
   const button = (
     <Comp
@@ -522,6 +529,7 @@ function SidebarMenuButton({
         "cursor-pointer", // Added cursor-pointer here
         className
       )}
+      onClick={handleClick}
       {...props}
     />
   )
@@ -682,6 +690,14 @@ function SidebarMenuSubButton({
   isActive?: boolean
 }) {
   const Comp = asChild ? Slot : "a"
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+    props.onClick?.(event)
+  }
 
   return (
     <Comp
@@ -697,6 +713,7 @@ function SidebarMenuSubButton({
         "group-data-[collapsible=icon]:hidden",
         className
       )}
+      onClick={handleClick}
       {...props}
     />
   )

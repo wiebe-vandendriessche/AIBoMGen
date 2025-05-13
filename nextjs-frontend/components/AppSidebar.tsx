@@ -37,6 +37,7 @@ import {
 import { Button } from "./ui/button";
 import { setCookie, getCookie, deleteCookie } from "@/lib/cookies";
 import { useEffect, useState } from "react";
+import { useLocalStorage } from "@/hooks/use-local";
 
 const items = [
     { title: 'Home', url: '/', icon: Home },
@@ -50,8 +51,11 @@ const items = [
 const AppSidebar = () => {
     const [cookieConsent, setCookieConsent] = useState<string | null>(null);
     const [isCookieDrawerOpen, setIsCookieDrawerOpen] = useState(false); // State to control drawer visibility
+    const [isCollapsibleOpen, setIsCollapsibleOpen] = useLocalStorage("collapsibleState", false); // Use local storage to persist state
+    const [isMounted, setIsMounted] = useState(false); // Track if the component is mounted
 
     useEffect(() => {
+        setIsMounted(true); // Set mounted state to true after the component mounts
         // Check if the user has already made a choice
         const consent = getCookie("cookieConsent");
         setCookieConsent(consent);
@@ -83,7 +87,7 @@ const AppSidebar = () => {
     };
 
     const t = useTranslations("AppSidebar");
-    const { state } = useSidebar(); // Get the sidebar state (expanded or collapsed)
+    const { state, isMobile } = useSidebar(); // Get the sidebar state and isMobile flag
 
     return (
         <Sidebar
@@ -95,7 +99,7 @@ const AppSidebar = () => {
                         <SidebarMenuButton asChild>
                             <Link href="/">
                                 <Image src="/logo.svg" alt="logo" width={30} height={30} className="" />
-                                {state !== "collapsed" && <span className="font-bold">{t("title")}</span>}
+                                <span className="font-bold">{t("title")}</span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -113,11 +117,11 @@ const AppSidebar = () => {
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton
                                         asChild
-                                        tooltip={state === "collapsed" ? t(item.title) : undefined} // Add tooltip only when collapsed
+                                        tooltip={t(item.title)} // Add tooltip
                                     >
                                         <Link href={item.url}>
                                             <item.icon />
-                                            {state !== "collapsed" && <span>{t(item.title)}</span>}
+                                            <span>{t(item.title)}</span>
                                         </Link>
                                     </SidebarMenuButton>
                                     {item.title === "Inbox" && (
@@ -138,62 +142,69 @@ const AppSidebar = () => {
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     asChild
-                                    tooltip={state === "collapsed" ? t("seeAllJobs") : undefined} // Tooltip for collapsed state
+                                    tooltip={t("seeAllJobs")}
                                 >
                                     <Link href="/jobs/all">
                                         <Projector />
-                                        {state !== "collapsed" && <span>{t("seeAllJobs")}</span>}
+                                        <span>{t("seeAllJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     asChild
-                                    tooltip={state === "collapsed" ? t("seeMyJobs") : undefined} // Tooltip for collapsed state
+                                    tooltip={t("seeMyJobs")} // Tooltip
                                 >
                                     <Link href="/jobs/my">
                                         <Projector />
-                                        {state !== "collapsed" && <span>{t("seeMyJobs")}</span>}
+                                        <span>{t("seeMyJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
-                            <Collapsible defaultOpen className="group/collapsible">
-                                <SidebarMenuItem>
-                                    <CollapsibleTrigger
-                                        asChild
-                                        className={state === "collapsed" ? "pointer-events-none opacity-50" : ""}
-                                    >
-                                        <SidebarMenuButton>
-                                            <BrainCircuit />
-                                            {state !== "collapsed" && <span>{t("myJobs")}</span>}
-                                            <ChevronDown
-                                                className={`ml-auto transition-transform ${state === "collapsed" ? "hidden" : "group-data-[state=open]/collapsible:rotate-180"
+                            {isMounted && ( // Ensure Collapsible renders only after mounting
+                                <Collapsible
+                                    open={isCollapsibleOpen}
+                                    onOpenChange={setIsCollapsibleOpen} // Update state on change
+                                    className="group/collapsible"
+                                >
+                                    <SidebarMenuItem>
+                                        <CollapsibleTrigger
+                                            asChild
+                                            className={state === "collapsed" && !isMobile ? "pointer-events-none opacity-50" : ""} // Allow toggling on mobile
+                                        >
+                                            <SidebarMenuButton>
+                                                <BrainCircuit />
+                                                <span>{t("myJobs")}</span>
+                                                <ChevronDown
+                                                    className={`ml-auto transition-transform ${
+                                                        isCollapsibleOpen ? "rotate-180" : ""
                                                     }`}
-                                            />
-                                        </SidebarMenuButton>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent>
-                                        <SidebarMenuSub>
-                                            <SidebarMenuSubItem>
-                                                <SidebarMenuSubButton asChild>
-                                                    <Link href="/jobs/1">
-                                                        <BrainCircuit />
-                                                        <span>{t("job1")}</span>
-                                                    </Link>
-                                                </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                            <SidebarMenuSubItem>
-                                                <SidebarMenuSubButton asChild>
-                                                    <Link href="/jobs/2">
-                                                        <BrainCircuit />
-                                                        <span>{t("job2")}</span>
-                                                    </Link>
-                                                </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                        </SidebarMenuSub>
-                                    </CollapsibleContent>
-                                </SidebarMenuItem>
-                            </Collapsible>
+                                                />
+                                            </SidebarMenuButton>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                            <SidebarMenuSub>
+                                                <SidebarMenuSubItem>
+                                                    <SidebarMenuSubButton asChild>
+                                                        <Link href="/jobs/1">
+                                                            <BrainCircuit />
+                                                            <span>{t("job1")}</span>
+                                                        </Link>
+                                                    </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                                <SidebarMenuSubItem>
+                                                    <SidebarMenuSubButton asChild>
+                                                        <Link href="/jobs/2">
+                                                            <BrainCircuit />
+                                                            <span>{t("job2")}</span>
+                                                        </Link>
+                                                    </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                            </SidebarMenuSub>
+                                        </CollapsibleContent>
+                                    </SidebarMenuItem>
+                                </Collapsible>
+                            )}
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
