@@ -1,4 +1,4 @@
-@startuml State Diagram: /verify_minio_artifacts
+@startuml state_verify_minio_artifacts
 
 [*] --> EndpointCalled : Calls verify_minio_artifacts endpoint
 EndpointCalled --> SavedLinkFile : Save uploaded link file[success]

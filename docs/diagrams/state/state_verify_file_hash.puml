@@ -1,4 +1,4 @@
-@startuml State Diagram: /verify_file_hash
+@startuml state_verify_file_hash
 
 [*] --> EndpointCalled : Calls verify_file_hash endpoint
 EndpointCalled --> SaveFiles : Save uploaded files[success]

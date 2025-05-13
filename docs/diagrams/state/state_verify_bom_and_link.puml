@@ -1,4 +1,4 @@
-@startuml State Diagram: /verify_bom_and_link
+@startuml state_verify_bom_and_link
 
 note as N1
 This process verifies the BOM file and its associated .link file.

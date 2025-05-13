@@ -1,4 +1,4 @@
-@startuml verifier_sequence
+@startuml sequence_verifier
 
 actor "AI User or Verifier" as verifier
 

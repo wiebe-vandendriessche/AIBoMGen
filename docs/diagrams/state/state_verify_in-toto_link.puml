@@ -1,4 +1,4 @@
-@startuml State Diagram: /verify_in-toto_link
+@startuml state_verify_in-toto_link
 
 note as N1
 This endpoint verifies the integrity of the .link file

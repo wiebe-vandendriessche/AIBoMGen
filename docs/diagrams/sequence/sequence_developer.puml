@@ -1,4 +1,4 @@
-@startuml developer_sequence
+@startuml sequence_developer
 
 actor "AI Developer" as developer
 
