@@ -17,7 +17,7 @@ A malicious actor could embed a `Lambda` layer inside a TensorFlow/Keras model f
     ```
 
 - **Restricted Model Loading Environment:** Models are loaded in a controlled and isolated environment to minimize the impact of potential malicious code. This ensures that even if a malicious model is loaded, it cannot affect the broader system.
-- **Model Integrity Verification:** When the AIBOM is generated, all materials, including the model, are hashed and included in the BOM. This ensures that any injected malicious code in the model file is also hashed and recorded. Additionally, the application verifies the integrity of the model by comparing its hash against a trusted reference before loading it. If the hashes do not match, the model is flagged as tampered and rejected.
+- **Model Integrity Verification:** When the AIBOM is generated, all materials, including the model, are hashed and included in the BOM. This ensures that any injected malicious code in the model file is also hashed and recorded.
 
 **Remaining risks**
 
