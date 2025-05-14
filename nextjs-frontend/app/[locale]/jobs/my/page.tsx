@@ -10,6 +10,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Clipboard, ExternalLink, ArrowUpDown } from "lucide-react";
+import Link from "next/link";
 
 import {
   ColumnDef,
@@ -25,11 +26,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React from "react";
+import { useJobContext } from "@/components/context/JobContext";
 
 const MyJobsPage = () => {
   const { instance, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
-  const [jobs, setJobs] = useState([]);
+  const { jobs, setJobs } = useJobContext(); // Access the context to set jobs
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -132,14 +134,12 @@ const MyJobsPage = () => {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => window.open(`/jobs/${row.getValue("id")}`, "_blank")}
-        >
-          <ExternalLink className="h-4 w-4" />
-          Open
-        </Button>
+        <Link href={`/jobs/my/${row.getValue("id")}`}>
+          <Button variant="ghost" size="sm">
+            <ExternalLink className="h-4 w-4" />
+            Open
+          </Button>
+        </Link>
       ),
     },
   ];

@@ -11,6 +11,7 @@ import MsalProviderWrapper from "@/components/providers/MsalProviderWrapper";
 import { NextIntlClientProvider, hasLocale, useTranslations } from 'next-intl';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
+import { JobProvider } from "@/components/context/JobContext";
 
 
 const geistSans = Geist({
@@ -63,15 +64,17 @@ export default async function RootLayout({
         >
           <MsalProviderWrapper>
             <NextIntlClientProvider locale={locale} messages={messages}>
-              <SidebarProvider defaultOpen={defaultOpen}>
-                <AppSidebar />
-                <main className="w-full">
-                  <Navbar />
-                  <div>
-                    {children}
-                  </div>
-                </main>
-              </SidebarProvider>
+              <JobProvider>
+                <SidebarProvider defaultOpen={defaultOpen}>
+                  <AppSidebar />
+                  <main className="w-full">
+                    <Navbar />
+                    <div>
+                      {children}
+                    </div>
+                  </main>
+                </SidebarProvider>
+              </JobProvider>
             </NextIntlClientProvider>
           </MsalProviderWrapper>
         </ThemeProvider>

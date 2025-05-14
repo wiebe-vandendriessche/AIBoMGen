@@ -212,7 +212,7 @@ const AppSidebar = () => {
                                                     .map((job: any) => (
                                                         <SidebarMenuSubItem key={job.id}>
                                                             <SidebarMenuSubButton asChild>
-                                                                <Link href={`/jobs/${job.id}`}>
+                                                                <Link href={`/jobs/my/${job.id}`}>
                                                                     <BrainCircuit />
                                                                     <span>{job.id}</span>
                                                                 </Link>
