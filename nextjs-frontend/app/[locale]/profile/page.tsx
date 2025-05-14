@@ -73,7 +73,7 @@ const Profile = () => {
   // If no account is logged in, show the Guest Profile
   if (accounts.length === 0) {
     return (
-      <div className="p-4 flex justify-center">
+      <div className="p-4 flex justify-center overflow-x-clip">
         <Card className="w-full max-w-xl">
           <CardHeader className="flex flex-col items-center">
             {/* Guest Profile Picture */}

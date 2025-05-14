@@ -38,6 +38,8 @@ import { Button } from "./ui/button";
 import { setCookie, getCookie, deleteCookie } from "@/lib/cookies";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local";
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { GetMyTasks } from "@/services/celery_utils/GetMyTasks";
 
 const items = [
     { title: 'Home', url: '/', icon: Home },
@@ -53,6 +55,9 @@ const AppSidebar = () => {
     const [isCookieDrawerOpen, setIsCookieDrawerOpen] = useState(false); // State to control drawer visibility
     const [isCollapsibleOpen, setIsCollapsibleOpen] = useLocalStorage("collapsibleState", false); // Use local storage to persist state
     const [isMounted, setIsMounted] = useState(false); // Track if the component is mounted
+    const { instance } = useMsal();
+    const isAuthenticated = useIsAuthenticated();
+    const [jobs, setJobs] = useState([]);
 
     useEffect(() => {
         setIsMounted(true); // Set mounted state to true after the component mounts
@@ -69,6 +74,23 @@ const AppSidebar = () => {
             return () => clearTimeout(timer); // Cleanup timer on unmount
         }
     }, []);
+
+    useEffect(() => {
+        setIsMounted(true); // Set mounted state to true after the component mounts
+
+        const fetchJobs = async () => {
+            if (isAuthenticated) {
+                try {
+                    const data = await GetMyTasks(instance);
+                    setJobs(data);
+                } catch (error) {
+                    console.error("Error fetching jobs:", error);
+                }
+            }
+        };
+
+        fetchJobs();
+    }, [instance, isAuthenticated]);
 
     const handleAcceptAll = () => {
         setCookie("cookieConsent", "accepted", 365); // Store consent for 1 year
@@ -161,7 +183,7 @@ const AppSidebar = () => {
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
-                            {isMounted && ( // Ensure Collapsible renders only after mounting
+                            {isMounted && isAuthenticated && ( // Ensure Collapsible renders only after mounting and user is authenticated
                                 <Collapsible
                                     open={isCollapsibleOpen}
                                     onOpenChange={setIsCollapsibleOpen} // Update state on change
@@ -174,32 +196,29 @@ const AppSidebar = () => {
                                         >
                                             <SidebarMenuButton>
                                                 <BrainCircuit />
-                                                <span>{t("myJobs")}</span>
+                                                <span>{t("recentJobs")}</span>
                                                 <ChevronDown
-                                                    className={`ml-auto transition-transform ${
-                                                        isCollapsibleOpen ? "rotate-180" : ""
-                                                    }`}
+                                                    className={`ml-auto transition-transform ${isCollapsibleOpen ? "rotate-180" : ""
+                                                        }`}
                                                 />
                                             </SidebarMenuButton>
                                         </CollapsibleTrigger>
                                         <CollapsibleContent>
                                             <SidebarMenuSub>
-                                                <SidebarMenuSubItem>
-                                                    <SidebarMenuSubButton asChild>
-                                                        <Link href="/jobs/1">
-                                                            <BrainCircuit />
-                                                            <span>{t("job1")}</span>
-                                                        </Link>
-                                                    </SidebarMenuSubButton>
-                                                </SidebarMenuSubItem>
-                                                <SidebarMenuSubItem>
-                                                    <SidebarMenuSubButton asChild>
-                                                        <Link href="/jobs/2">
-                                                            <BrainCircuit />
-                                                            <span>{t("job2")}</span>
-                                                        </Link>
-                                                    </SidebarMenuSubButton>
-                                                </SidebarMenuSubItem>
+                                                {jobs
+                                                    .filter((job: any) => job.date_done) // Ensure jobs with date_done are included
+                                                    .sort((a: any, b: any) => new Date(b.date_done).getTime() - new Date(a.date_done).getTime()) // Sort by date_done descending
+                                                    .slice(0, 5) // Take the most recent 5 jobs
+                                                    .map((job: any) => (
+                                                        <SidebarMenuSubItem key={job.id}>
+                                                            <SidebarMenuSubButton asChild>
+                                                                <Link href={`/jobs/${job.id}`}>
+                                                                    <BrainCircuit />
+                                                                    <span>{job.id}</span>
+                                                                </Link>
+                                                            </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                    ))}
                                             </SidebarMenuSub>
                                         </CollapsibleContent>
                                     </SidebarMenuItem>
@@ -216,7 +235,7 @@ const AppSidebar = () => {
                             <DrawerTrigger asChild>
                                 <SidebarMenuButton asChild>
                                     <Link href="#">
-                                        <GlobeLock/>
+                                        <GlobeLock />
                                         {t("privacyStatement")}
                                     </Link>
                                 </SidebarMenuButton>

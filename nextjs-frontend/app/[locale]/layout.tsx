@@ -61,7 +61,7 @@ export default async function RootLayout({
           defaultTheme="system"
           enableSystem
         >
-          {/*<MsalProviderWrapper>*/}
+          <MsalProviderWrapper>
             <NextIntlClientProvider locale={locale} messages={messages}>
               <SidebarProvider defaultOpen={defaultOpen}>
                 <AppSidebar />
@@ -73,7 +73,7 @@ export default async function RootLayout({
                 </main>
               </SidebarProvider>
             </NextIntlClientProvider>
-          {/*</MsalProviderWrapper>*/}
+          </MsalProviderWrapper>
         </ThemeProvider>
       </body>
     </html>
