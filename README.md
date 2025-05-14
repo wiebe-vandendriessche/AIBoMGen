@@ -260,7 +260,7 @@ RABBITMQ_USER=rmq_user
 RABBITMQ_PASSWORD=rmq_password
 FLOWER_BASIC_AUTH=admin:admin
 CELERY_BROKER_URL=amqp://rmq_user:rmq_password@rabbitmq:5672//
-CELERY_RESULT_BACKEND=rpc://
+CELERY_RESULT_BACKEND=db+mysql+mysqlconnector://aibomgen_user:aibomgen_password@mysql:3306/celery_results
 WORKER_IMAGE_NAME=aibomgen-worker:latest
 MINIO_ROOT_USER=minio_user
 MINIO_ROOT_PASSWORD=minio_password
@@ -268,7 +268,7 @@ MINIO_ENDPOINT=http://minio:9000
 TRAINING_BUCKET=training-jobs
 WORKER_SCANS_BUCKET=worker-scans
 SCANNER_SCANS_BUCKET=scanner-scans
-ENABLE_SCANNER=true
+ENABLE_SCANNER=false
 AUTH_ENABLED=true
 APP_CLIENT_ID=a65becdd-c8b9-4a90-9c8a-9d9c526aa130
 OPENAPI_CLIENT_ID=24be1ce4-8d3c-423e-9d88-02cc9a836c17
@@ -277,6 +277,7 @@ MYSQL_DATABASE=aibomgen
 MYSQL_USER=aibomgen_user
 MYSQL_PASSWORD=aibomgen_password
 DATABASE_URL=mysql+mysqlconnector://aibomgen_user:aibomgen_password@mysql:3306/aibomgen
+REDIS_PASSWORD=redis_password
 ```
 
 **Note**: For testing purposes, it is recommended to set `AUTH_ENABLED=false` and `ENABLE_SCANNER=false` to simplify the setup and avoid additional authentication or scanning configurations.

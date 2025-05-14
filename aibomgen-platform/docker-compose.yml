@@ -20,7 +20,7 @@ services:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}  # Optional, creates the first database
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     healthcheck:
@@ -32,6 +32,7 @@ services:
       - .env
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql/init-multiple-dbs.sql:/docker-entrypoint-initdb.d/init-multiple-dbs.sql:ro
     networks:
       - internal_network
       
@@ -84,6 +85,8 @@ services:
     depends_on:
       - rabbitmq
       - minio
+      - mysql
+    restart: always
     env_file:
       - .env
     secrets:

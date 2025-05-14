@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-celery
+celery[sqlalchemy]
 pydantic
 pydantic-settings
 python-multipart
@@ -14,3 +14,4 @@ mysql-connector-python
 in-toto
 cryptography
 cyclonedx-python-lib[validation]
+pymysql

@@ -1,4 +1,4 @@
-celery
+celery[sqlalchemy]
 flower
 python-dotenv
 PyYAML
@@ -11,3 +11,5 @@ in-toto
 psutil
 nvidia-ml-py3
 docker
+mysql-connector-python
+pymysql
