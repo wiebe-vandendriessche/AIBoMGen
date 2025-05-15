@@ -40,7 +40,12 @@ import { useEffect, useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { GetMyTasks } from "@/services/celery_utils/GetMyTasks";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 const items = [
     { title: 'Home', url: '/', icon: Home },
     { title: 'Inbox', url: '#', icon: Inbox },
@@ -156,8 +161,23 @@ const AppSidebar = () => {
                 </SidebarGroup>
                 <SidebarGroup>
                     <SidebarGroupLabel>{t("trainingJobs")}</SidebarGroupLabel>
-                    <SidebarGroupAction>
-                        <Plus /> <span className="sr-only">{t("addJob")}</span>
+                    <SidebarGroupAction className="w-6 h-6">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        href="/jobs/new"
+                                        className="w-6 h-6 items-center justify-center flex"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span className="sr-only">{t("addJob")}</span>
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t("addJob")}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </SidebarGroupAction>
                     <SidebarGroupContent>
                         <SidebarMenu>

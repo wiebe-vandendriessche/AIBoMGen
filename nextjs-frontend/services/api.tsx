@@ -36,19 +36,25 @@ export const fetcher = async (
     const queryString = new URLSearchParams(queryParams).toString();
     const url = `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ""}`;
 
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-    };
+    // Initialize headers
+    const headers: Record<string, string> = {};
 
+    // Add Authorization header if required
     if (authRequired) {
         const token = await getAccessToken(instance, scopes);
         headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Only set Content-Type if the body is not FormData
+    if (body && !(body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify(body); // Convert body to JSON if it's not FormData
+    }
+
     const response = await fetch(url, {
         method,
         headers,
-        body: body ? JSON.stringify(body) : null,
+        body: body || null, // Pass body directly (FormData or JSON)
     });
 
     if (!response.ok) {

@@ -12,7 +12,7 @@ import { NextIntlClientProvider, hasLocale, useTranslations } from 'next-intl';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { JobProvider } from "@/components/context/JobContext";
-
+import ClientToaster from "@/components/ClientToaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -73,6 +73,7 @@ export default async function RootLayout({
                       {children}
                     </div>
                   </main>
+                  <ClientToaster /> {/* Use the client-side Toaster */}
                 </SidebarProvider>
               </JobProvider>
             </NextIntlClientProvider>
