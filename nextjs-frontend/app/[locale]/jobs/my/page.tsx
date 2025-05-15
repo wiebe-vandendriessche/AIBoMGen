@@ -50,8 +50,15 @@ const MyJobsPage = () => {
       }
     };
 
-    fetchJobs();
-  }, [instance, inProgress, isAuthenticated]);
+    fetchJobs(); // Fetch jobs immediately on mount
+
+    // Polling mechanism: Fetch jobs every 30 seconds
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval); // Cleanup interval on unmount
+  }, [instance, inProgress, isAuthenticated, setJobs]);
 
   const columns: ColumnDef<any>[] = [
     {
@@ -128,7 +135,12 @@ const MyJobsPage = () => {
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => row.getValue("date_done") || "N/A",
+      cell: ({ row }) => {
+        const dateDone = row.getValue("date_done");
+        if (!dateDone) return "N/A";
+
+        return `${dateDone} UTC`;
+      },
     },
     {
       id: "actions",
@@ -144,7 +156,9 @@ const MyJobsPage = () => {
     },
   ];
 
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "date_done", desc: true }, // Sort by date_done in descending order
+  ]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );

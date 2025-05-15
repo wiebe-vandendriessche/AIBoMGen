@@ -1,6 +1,6 @@
 "use client"
 
-import { BrainCircuit, Calendar, ChevronDown, ChevronUp, Cookie, GlobeLock, Home, Inbox, Plus, Projector, Search, Settings, User2 } from "lucide-react";
+import { BrainCircuit, Calendar, ChevronDown, ChevronUp, CloudCog, Cookie, GlobeLock, Home, Inbox, Plus, Projector, Search, Settings, User2 } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -41,19 +41,13 @@ import { useLocalStorage } from "@/hooks/use-local";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { GetMyTasks } from "@/services/celery_utils/GetMyTasks";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@/components/ui/tooltip"
-const items = [
-    { title: 'Home', url: '/', icon: Home },
-    { title: 'Inbox', url: '#', icon: Inbox },
-    { title: 'Calendar', url: '#', icon: Calendar },
-    { title: 'Search', url: '#', icon: Search },
-    { title: 'Settings', url: '#', icon: Settings },
-]
-
+import { on } from "events";
+import { useJobContext } from "./context/JobContext";
 
 const AppSidebar = () => {
     const [cookieConsent, setCookieConsent] = useState<string | null>(null);
@@ -62,7 +56,8 @@ const AppSidebar = () => {
     const [isMounted, setIsMounted] = useState(false); // Track if the component is mounted
     const { instance } = useMsal();
     const isAuthenticated = useIsAuthenticated();
-    const [jobs, setJobs] = useState([]);
+    const { jobs, setJobs } = useJobContext(); // Get jobs from context
+    const { allJobs, setAllJobs } = useJobContext(); // Get all jobs from context
 
     useEffect(() => {
         setIsMounted(true); // Set mounted state to true after the component mounts
@@ -95,6 +90,11 @@ const AppSidebar = () => {
         };
 
         fetchJobs();
+
+        // Polling mechanism: Fetch jobs every 30 seconds
+        const interval = setInterval(() => {
+            fetchJobs();
+        }, 60000); // minute
     }, [instance, isAuthenticated]);
 
     const handleAcceptAll = () => {
@@ -137,29 +137,6 @@ const AppSidebar = () => {
 
             <SidebarContent>
                 <SidebarGroup>
-                    <SidebarGroupLabel>{t("mainMenu")}</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {items.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip={t(item.title)} // Add tooltip
-                                    >
-                                        <Link href={item.url}>
-                                            <item.icon />
-                                            <span>{t(item.title)}</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                    {item.title === "Inbox" && (
-                                        <SidebarMenuBadge>25</SidebarMenuBadge>
-                                    )}
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-                <SidebarGroup>
                     <SidebarGroupLabel>{t("trainingJobs")}</SidebarGroupLabel>
                     <SidebarGroupAction className="w-6 h-6">
                         <TooltipProvider>
@@ -191,6 +168,7 @@ const AppSidebar = () => {
                                         <span>{t("seeAllJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                                <SidebarMenuBadge>{allJobs.length}</SidebarMenuBadge>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
                                 <SidebarMenuButton
@@ -202,6 +180,9 @@ const AppSidebar = () => {
                                         <span>{t("seeMyJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                                {isMounted && isAuthenticated && (
+                                    <SidebarMenuBadge>{jobs.length}</SidebarMenuBadge>
+                                )}
                             </SidebarMenuItem>
                             {isMounted && isAuthenticated && ( // Ensure Collapsible renders only after mounting and user is authenticated
                                 <Collapsible
@@ -215,20 +196,32 @@ const AppSidebar = () => {
                                             className={state === "collapsed" && !isMobile ? "pointer-events-none opacity-50" : ""} // Allow toggling on mobile
                                         >
                                             <SidebarMenuButton>
-                                                <BrainCircuit />
-                                                <span>{t("recentJobs")}</span>
                                                 <ChevronDown
-                                                    className={`ml-auto transition-transform ${isCollapsibleOpen ? "rotate-180" : ""
-                                                        }`}
+                                                    className={`transition-transform ${isCollapsibleOpen ? "rotate-180" : ""}`}
                                                 />
+                                                <span>{t("recentJobs")}</span>
+                                                <SidebarMenuBadge>
+                                                    {
+                                                        jobs.filter((job: any) => {
+                                                            const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
+                                                            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000); // Calculate one hour ago in UTC
+
+                                                            return jobDate.getTime() > oneHourAgo.getTime(); // Compare timestamps in UTC
+                                                        }).length
+                                                    }
+                                                </SidebarMenuBadge>
                                             </SidebarMenuButton>
                                         </CollapsibleTrigger>
                                         <CollapsibleContent>
                                             <SidebarMenuSub>
                                                 {jobs
-                                                    .filter((job: any) => job.date_done) // Ensure jobs with date_done are included
+                                                    .filter((job: any) => {
+                                                        const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
+                                                        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000); // Calculate one hour ago in UTC
+
+                                                        return jobDate.getTime() > oneHourAgo.getTime(); // Compare timestamps in UTC
+                                                    }) // Filter jobs from the past hour
                                                     .sort((a: any, b: any) => new Date(b.date_done).getTime() - new Date(a.date_done).getTime()) // Sort by date_done descending
-                                                    .slice(0, 5) // Take the most recent 5 jobs
                                                     .map((job: any) => (
                                                         <SidebarMenuSubItem key={job.id}>
                                                             <SidebarMenuSubButton asChild>
@@ -244,6 +237,17 @@ const AppSidebar = () => {
                                     </SidebarMenuItem>
                                 </Collapsible>
                             )}
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    asChild
+                                    tooltip="Active Workers"
+                                >
+                                    <Link href="/workers">
+                                        <CloudCog />
+                                        <span>Active Workers</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>

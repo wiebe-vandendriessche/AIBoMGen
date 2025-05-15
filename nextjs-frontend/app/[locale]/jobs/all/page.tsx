@@ -21,17 +21,18 @@ import {
 import { Button } from "@/components/ui/button";
 import React from "react";
 import { Input } from "@/components/ui/input";
+import { useJobContext } from "@/components/context/JobContext";
 
 const AllJobsPage = () => {
   const { instance } = useMsal();
-  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { allJobs, setAllJobs } = useJobContext();
 
   useEffect(() => {
     const fetchJobs = async () => {
       try {
         const data = await GetAllTasks(instance);
-        setJobs(data);
+        setAllJobs(data);
       } catch (error) {
         console.error("Error fetching jobs:", error);
       } finally {
@@ -39,7 +40,14 @@ const AllJobsPage = () => {
       }
     };
 
-    fetchJobs();
+    fetchJobs(); // Fetch jobs immediately on mount
+
+    // Polling mechanism: Fetch jobs every 10 seconds
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 30000); // 10 seconds
+
+    return () => clearInterval(interval); // Cleanup interval on unmount
   }, [instance]);
 
   const columns: ColumnDef<any>[] = [
@@ -117,17 +125,24 @@ const AllJobsPage = () => {
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => row.getValue("date_done") || "N/A",
+      cell: ({ row }) => {
+        const dateDone = row.getValue("date_done");
+        if (!dateDone) return "N/A";
+
+        return `${dateDone} UTC`;
+      },
     },
   ];
 
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "date_done", desc: true }, // Sort by date_done in descending order
+  ]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
 
   const table = useReactTable({
-    data: jobs,
+    data: allJobs,
     columns,
     state: { sorting, columnFilters },
     onSortingChange: setSorting,

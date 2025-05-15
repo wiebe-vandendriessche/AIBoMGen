@@ -4,6 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +78,8 @@ function capitalize(str: string): string {
 
 export default function NewJobPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [openItems, setOpenItems] = useState<string[]>([]);
+
     const { instance } = useMsal();
     const router = useRouter();
 
@@ -150,172 +158,197 @@ export default function NewJobPage() {
         }
     };
 
-
+    const handleValidationErrors = () => {
+        // Open all accordion items if there are validation errors
+        setOpenItems(["required-parameters", "training-parameters", "user-defined-parameters"]);
+    };
 
     return (
-        <div className="max-w-2xl mx-auto p-4">
+        <div className="max-w-3xl mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Submit a New Job</h1>
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Required Parameters */}
-                    <h2 className="text-xl font-bold">Required Parameters</h2>
-                    <FormField
-                        name="model"
-                        control={form.control}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Model File</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="file"
-                                        accept=".keras"
-                                        onChange={(e) => field.onChange(e.target.files?.[0])}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        name="dataset"
-                        control={form.control}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Dataset File</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="file"
-                                        accept=".csv,.zip"
-                                        onChange={(e) => field.onChange(e.target.files?.[0])}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        name="dataset_definition"
-                        control={form.control}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Dataset Definition File</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="file"
-                                        accept=".yaml"
-                                        onChange={(e) => field.onChange(e.target.files?.[0])}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        name="framework"
-                        control={form.control}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Framework</FormLabel>
-                                <FormControl>
-                                    <Input value={field.value} readOnly />
-                                </FormControl>
-                                <FormDescription>
-                                    Currently, only TensorFlow 2.16.1 is supported.
-                                </FormDescription>
-                            </FormItem>
-                        )}
-                    />
+                <form
+                    onSubmit={form.handleSubmit(onSubmit, handleValidationErrors)}
+                    className="space-y-4"
+                >
+                    <Accordion
+                        type="multiple"
+                        className="space-y-3"
+                        value={openItems}
+                        onValueChange={(values) => setOpenItems(values)}
+                    >
+                        {/* Required Parameters */}
+                        <AccordionItem value="required-parameters">
+                            <AccordionTrigger>Required Parameters</AccordionTrigger>
+                            <AccordionContent>
+                                <FormField
+                                    name="model"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Model File</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="file"
+                                                    accept=".keras"
+                                                    onChange={(e) => field.onChange(e.target.files?.[0])}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    name="dataset"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Dataset File</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="file"
+                                                    accept=".csv,.zip"
+                                                    onChange={(e) => field.onChange(e.target.files?.[0])}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    name="dataset_definition"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Dataset Definition File</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="file"
+                                                    accept=".yaml"
+                                                    onChange={(e) => field.onChange(e.target.files?.[0])}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    name="framework"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Framework</FormLabel>
+                                            <FormControl>
+                                                <Input value={field.value} readOnly />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Currently, only TensorFlow 2.16.1 is supported.
+                                            </FormDescription>
+                                        </FormItem>
+                                    )}
+                                />
+                            </AccordionContent>
+                        </AccordionItem>
 
-                    {/* Training Parameters */}
-                    <h2 className="text-xl font-bold">Training Parameters</h2>
-                    {([
-                        "epochs",
-                        "validation_split",
-                        "initial_epoch",
-                        "batch_size",
-                        "steps_per_epoch",
-                        "validation_steps",
-                        "validation_freq",
-                    ] as const).map((fieldName) => {
-                        const fieldConstraints: Record<string, { min?: number; max?: number; step?: string }> = {
-                            validation_split: { min: 0, max: 1, step: "any" },
-                            epochs: { min: 1, step: "1" },
-                            initial_epoch: { min: 0, step: "1" },
-                            batch_size: { min: 1, step: "1" },
-                            validation_freq: { min: 1, step: "1" },
-                        };
+                        {/* Training Parameters */}
+                        <AccordionItem value="training-parameters">
+                            <AccordionTrigger>Training Parameters</AccordionTrigger>
+                            <AccordionContent>
+                                {([
+                                    "epochs",
+                                    "validation_split",
+                                    "initial_epoch",
+                                    "batch_size",
+                                    "steps_per_epoch",
+                                    "validation_steps",
+                                    "validation_freq",
+                                ] as const).map((fieldName) => {
+                                    const fieldConstraints: Record<string, { min?: number; max?: number; step?: string }> = {
+                                        validation_split: { min: 0, max: 1, step: "any" },
+                                        epochs: { min: 1, step: "1" },
+                                        initial_epoch: { min: 0, step: "1" },
+                                        batch_size: { min: 1, step: "1" },
+                                        validation_freq: { min: 1, step: "1" },
+                                    };
 
-                        const constraints = fieldConstraints[fieldName] || {};
+                                    const constraints = fieldConstraints[fieldName] || {};
 
-                        return (
-                            <FormField
-                                key={fieldName}
-                                name={fieldName}
-                                control={form.control}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>{capitalize(fieldName.replace(/_/g, " "))}</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                placeholder={`Enter ${fieldName}`}
-                                                value={field.value || ""}
-                                                min={constraints.min}
-                                                max={constraints.max}
-                                                step={constraints.step}
-                                                onChange={(e) =>
-                                                    field.onChange(
-                                                        e.target.value === "" ? undefined : Number(e.target.value)
-                                                    )
-                                                }
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        );
-                    })}
+                                    return (
+                                        <FormField
+                                            key={fieldName}
+                                            name={fieldName}
+                                            control={form.control}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>{capitalize(fieldName.replace(/_/g, " "))}</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder={`Enter ${fieldName}`}
+                                                            value={field.value || ""}
+                                                            min={constraints.min}
+                                                            max={constraints.max}
+                                                            step={constraints.step}
+                                                            onChange={(e) =>
+                                                                field.onChange(
+                                                                    e.target.value === "" ? undefined : Number(e.target.value)
+                                                                )
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    );
+                                })}
+                            </AccordionContent>
+                        </AccordionItem>
 
-                    {/* User Defined Parameters */}
-                    <h2 className="text-xl font-bold">User Defined Parameters</h2>
-                    <p className="text-sm text-gray-600">
-                        Optional user input params will be included in the AIBoM but are not trusted truth because the author of a model can write what they want. However, we guarantee that the author specified these as recorded in the AIBoM.
-                    </p>
-                    {([
-                        "model_name",
-                        "model_version",
-                        "model_description",
-                        "author",
-                        "model_type",
-                        "base_model",
-                        "base_model_source",
-                        "intended_use",
-                        "out_of_scope",
-                        "misuse_or_malicious",
-                        "license_name",
-                    ] as const).map((fieldName) => (
-                        <FormField
-                            key={fieldName}
-                            name={fieldName}
-                            control={form.control}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        {capitalize(fieldName.replace(/_/g, " "))} (Optional)
-                                    </FormLabel>
-                                    <FormControl>
-                                        {["model_description", "intended_use", "out_of_scope", "misuse_or_malicious"].includes(fieldName) ? (
-                                            <Textarea placeholder={`Enter ${fieldName}`} {...field} />
-                                        ) : (
-                                            <Input placeholder={`Enter ${fieldName}`} {...field} />
+                        {/* User Defined Parameters */}
+                        <AccordionItem value="user-defined-parameters">
+                            <AccordionTrigger>User Defined Parameters</AccordionTrigger>
+                            <AccordionContent>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Optional user input params will be included in the AIBoM but are not trusted truth because the author of a model can write what they want. However, we guarantee that the author specified these as recorded in the AIBoM.
+                                </p>
+                                {([
+                                    "model_name",
+                                    "model_version",
+                                    "model_description",
+                                    "author",
+                                    "model_type",
+                                    "base_model",
+                                    "base_model_source",
+                                    "intended_use",
+                                    "out_of_scope",
+                                    "misuse_or_malicious",
+                                    "license_name",
+                                ] as const).map((fieldName) => (
+                                    <FormField
+                                        key={fieldName}
+                                        name={fieldName}
+                                        control={form.control}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {capitalize(fieldName.replace(/_/g, " "))} (Optional)
+                                                </FormLabel>
+                                                <FormControl>
+                                                    {["model_description", "intended_use", "out_of_scope", "misuse_or_malicious"].includes(fieldName) ? (
+                                                        <Textarea placeholder={`Enter ${fieldName}`} {...field} />
+                                                    ) : (
+                                                        <Input placeholder={`Enter ${fieldName}`} {...field} />
+                                                    )}
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    ))}
+                                    />
+                                ))}
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
 
                     {/* Submit Button */}
                     <Button type="submit" disabled={isSubmitting}>

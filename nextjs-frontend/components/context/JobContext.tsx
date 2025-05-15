@@ -4,8 +4,10 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 // Define the shape of the context
 interface JobContextType {
-  jobs: any[];
+  jobs: any[]; // My Jobs (authentication required)
   setJobs: (jobs: any[]) => void;
+  allJobs: any[]; // All Jobs
+  setAllJobs: (allJobs: any[]) => void;
 }
 
 // Create the context
@@ -13,7 +15,8 @@ const JobContext = createContext<JobContextType | undefined>(undefined);
 
 // Provider component
 export const JobProvider = ({ children }: { children: React.ReactNode }) => {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]); // State for "My Jobs"
+  const [allJobs, setAllJobs] = useState<any[]>([]); // State for "All Jobs"
 
   // Log the jobs array whenever it changes
   useEffect(() => {
@@ -21,7 +24,7 @@ export const JobProvider = ({ children }: { children: React.ReactNode }) => {
   }, [jobs]);
 
   return (
-    <JobContext.Provider value={{ jobs, setJobs }}>
+    <JobContext.Provider value={{ jobs, setJobs, allJobs, setAllJobs }}>
       {children}
     </JobContext.Provider>
   );
