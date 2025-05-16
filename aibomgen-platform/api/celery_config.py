@@ -20,4 +20,7 @@ celery_app.conf.update(
         "task": "celery_taskmeta",
         "group": "celery_groupmeta",
     },
+    result_backend=os.getenv("CELERY_RESULT_BACKEND"),
+    result_persistent=True,  # Make result messages persistent
+    result_extended=True,  # Extend the result backend with additional fields
 )

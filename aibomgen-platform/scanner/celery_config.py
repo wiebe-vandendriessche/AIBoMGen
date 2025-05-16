@@ -26,7 +26,10 @@ celery_app.conf.update(
     beat_schedule={
         "scan-worker-image-every-hour": {
             "task": "tasks.scan_worker_and_self_images",
-            "schedule": crontab(minute="*/5"),  # Executes every 5 minutes
+            "schedule": crontab(minute=0, hour='*/1'),  # Executes every hour
         },
     },
+    result_persistent=True,  # Make result messages persistent
+    result_backend=os.getenv("CELERY_RESULT_BACKEND"),
+    result_extended=True,  # Extend the result backend with additional fields
 )

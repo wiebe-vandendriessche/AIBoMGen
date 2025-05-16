@@ -12,4 +12,3 @@ psutil
 nvidia-ml-py3
 docker
 mysql-connector-python
-pymysql

@@ -42,8 +42,14 @@ async def get_all_tasks(db: Session = Depends(get_db)):
             "state": async_result.state,
             "result": async_result.result if async_result.state == "SUCCESS" else None,
             "traceback": async_result.traceback if async_result.state == "FAILURE" else None,
-            # Include date_done
             "date_done": async_result.date_done.isoformat() if async_result.date_done else None,
+            "worker": async_result.worker,
+            "args": async_result.args,
+            "kwargs": async_result.kwargs,
+            "retries": async_result.retries,
+            "queue": async_result.queue,
+            "name": async_result.name,
+            "info": async_result.info,
         })
 
     return tasks
@@ -108,8 +114,14 @@ async def get_my_tasks(
             "state": async_result.state,
             "result": async_result.result if async_result.state == "SUCCESS" else None,
             "traceback": async_result.traceback if async_result.state == "FAILURE" else None,
-            # Include date_done
             "date_done": async_result.date_done.isoformat() if async_result.date_done else None,
+            "worker": async_result.worker,
+            "args": async_result.args,
+            "kwargs": async_result.kwargs,
+            "retries": async_result.retries,
+            "queue": async_result.queue,
+            "name": async_result.name,
+            "info": async_result.info,
         })
 
     return tasks

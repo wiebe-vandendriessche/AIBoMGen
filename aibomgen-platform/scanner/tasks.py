@@ -6,6 +6,7 @@ from datetime import datetime
 import docker
 from celery_config import celery_app
 
+
 def get_docker_info():
     """
     Dynamically retrieve Docker container and image information.
@@ -39,7 +40,8 @@ def scan_worker_and_self_images():
         # Retrieve the worker image name from environment variables
         worker_image_name = os.getenv("WORKER_IMAGE_NAME")
         if not worker_image_name:
-            raise ValueError("Worker image name is not defined in the environment variables.")
+            raise ValueError(
+                "Worker image name is not defined in the environment variables.")
 
         # Retrieve the scanner image name dynamically
         scanner_image_info = get_docker_info()
@@ -55,8 +57,9 @@ def scan_worker_and_self_images():
             output_file = f"/tmp/{image_name.replace(':', '_')}_vulnerabilities_{timestamp}.json"
 
             network_name = "internal_network"  # The network name to use for the scan
-            container_name = f"trivy_scanner_{timestamp}"  # Unique container name for the scan
-    
+            # Unique container name for the scan
+            container_name = f"trivy_scanner_{timestamp}"
+
             # Run Trivy scan in Trivy container
             trivy_result = subprocess.run(
                 [
@@ -66,11 +69,12 @@ def scan_worker_and_self_images():
                     "aquasec/trivy:latest", "image", "--scanners", "vuln", "--format", "json", image_name
                 ],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 text=True,
             )
             if trivy_result.returncode != 0:
-                raise Exception(f"Trivy scan failed for {image_name}: {trivy_result.stderr.strip()}")
+                raise Exception(
+                    f"Trivy scan failed for {image_name}: {trivy_result.stderr.strip()}")
 
             # Save results to a file
             vulnerabilities = json.loads(trivy_result.stdout)
@@ -85,8 +89,10 @@ def scan_worker_and_self_images():
             )
 
         # Perform scans for both images
-        perform_scan(worker_image_name, WORKER_SCANS_BUCKET, "worker-vulnerability-scans")
-        perform_scan(scanner_image_name, SCANNER_SCANS_BUCKET, "scanner-vulnerability-scans")
+        perform_scan(worker_image_name, WORKER_SCANS_BUCKET,
+                     "worker-vulnerability-scans")
+        perform_scan(scanner_image_name, SCANNER_SCANS_BUCKET,
+                     "scanner-vulnerability-scans")
 
         return {"status": "success", "message": "Both images scanned and results uploaded to MinIO."}
 

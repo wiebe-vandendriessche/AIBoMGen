@@ -53,6 +53,13 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         }
     }, [jobid, jobs]);
 
+    function extractModelInfo(args: any[]) {
+        if (!Array.isArray(args) || args.length < 6) return {};
+        const [uniqueDir, modelUrl, datasetUrl, definitionUrl, modelInfo, trainingParams] = args;
+        return { uniqueDir, modelUrl, datasetUrl, definitionUrl, modelInfo, trainingParams };
+    }
+
+
 
     // Redirect or show an error if the user is not authenticated
     if (!isAuthenticated) {
@@ -126,6 +133,16 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
     }
 
     // Render the job details
+    const {
+        uniqueDir,
+        modelUrl,
+        datasetUrl,
+        definitionUrl,
+        modelInfo,
+        trainingParams,
+    } = extractModelInfo(jobDetails.args);
+
+    // Render the job details
     return (
         <div className="p-4 flex justify-center overflow-x-clip">
             <Card className="w-full max-w-xl">
@@ -142,16 +159,75 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                             <strong>State:</strong> {jobDetails.state}
                         </div>
                         <div>
+                            <strong>Worker:</strong> {jobDetails.worker || "N/A"}
+                        </div>
+                        <div>
                             <strong>Training Status:</strong> {jobDetails.result?.training_status || "N/A"}
                         </div>
                         <div>
-                            <strong>Unique Directory:</strong> {jobDetails.result?.unique_dir || "N/A"}
+                            <strong>Unique Directory:</strong> {jobDetails.result?.unique_dir || uniqueDir || "N/A"}
                         </div>
                         <div>
-                            <strong>Date Done:</strong> {jobDetails.date_done || "N/A"}
+                            <strong>Date Done:</strong> {jobDetails.date_done ? new Date(jobDetails.date_done).toLocaleString() + " UTC" : "N/A"}
+                        </div>
+                        <div>
+                            <strong>Message:</strong> {jobDetails.result?.message || jobDetails.info?.message || "N/A"}
                         </div>
                         <div>
                             <strong>Error:</strong> {jobDetails.result?.error || "N/A"}
+                        </div>
+                        <hr />
+                        <div>
+                            <strong>Model Info:</strong>
+                            <ul className="ml-4">
+                                <li><strong>Name:</strong> {modelInfo?.model_name || "N/A"}</li>
+                                <li><strong>Framework:</strong> {modelInfo?.framework || "N/A"}</li>
+                                <li><strong>Description:</strong> {modelInfo?.model_description || "N/A"}</li>
+                                <li><strong>Author:</strong> {modelInfo?.author || "N/A"}</li>
+                                <li><strong>Version:</strong> {modelInfo?.model_version || "N/A"}</li>
+                                <li><strong>Type:</strong> {modelInfo?.model_type || "N/A"}</li>
+                                <li><strong>Base Model:</strong> {modelInfo?.base_model || "N/A"}</li>
+                                <li><strong>Base Model Source:</strong> {modelInfo?.base_model_source || "N/A"}</li>
+                                <li><strong>Intended Use:</strong> {modelInfo?.intended_use || "N/A"}</li>
+                                <li><strong>Out of Scope:</strong> {modelInfo?.out_of_scope || "N/A"}</li>
+                                <li><strong>Misuse or Malicious:</strong> {modelInfo?.misuse_or_malicious || "N/A"}</li>
+                                <li><strong>License:</strong> {modelInfo?.license_name || "N/A"}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>Training Parameters:</strong>
+                            <ul className="ml-4">
+                                <li><strong>Epochs:</strong> {trainingParams?.epochs ?? "N/A"}</li>
+                                <li><strong>Batch Size:</strong> {trainingParams?.batch_size ?? "N/A"}</li>
+                                <li><strong>Validation Split:</strong> {trainingParams?.validation_split ?? "N/A"}</li>
+                                <li><strong>Initial Epoch:</strong> {trainingParams?.initial_epoch ?? "N/A"}</li>
+                                <li><strong>Steps per Epoch:</strong> {trainingParams?.steps_per_epoch ?? "N/A"}</li>
+                                <li><strong>Validation Steps:</strong> {trainingParams?.validation_steps ?? "N/A"}</li>
+                                <li><strong>Validation Freq:</strong> {trainingParams?.validation_freq ?? "N/A"}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>Artifacts:</strong>
+                            <ul className="ml-4">
+                                <li>
+                                    <strong>Model URL:</strong><br />
+                                    <a href={modelUrl} className="underline" target="_blank" rel="noopener noreferrer">
+                                        {modelUrl || "N/A"}
+                                    </a>
+                                </li>
+                                <li>
+                                    <strong>Dataset URL:</strong><br />
+                                    <a href={datasetUrl} className="underline" target="_blank" rel="noopener noreferrer">
+                                        {datasetUrl || "N/A"}
+                                    </a>
+                                </li>
+                                <li>
+                                    <strong>Definition URL:</strong><br />
+                                    <a href={definitionUrl} className="underline" target="_blank" rel="noopener noreferrer">
+                                        {definitionUrl || "N/A"}
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </CardContent>

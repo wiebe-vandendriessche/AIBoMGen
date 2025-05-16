@@ -168,7 +168,10 @@ const AppSidebar = () => {
                                         <span>{t("seeAllJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
-                                <SidebarMenuBadge>{allJobs.length}</SidebarMenuBadge>
+                                {/* Only render badge after mount to avoid hydration mismatch */}
+                                {isMounted && allJobs.length > 0 ? (
+                                    <SidebarMenuBadge>{allJobs.length}</SidebarMenuBadge>
+                                ) : null}
                             </SidebarMenuItem>
                             <SidebarMenuItem>
                                 <SidebarMenuButton
@@ -180,62 +183,60 @@ const AppSidebar = () => {
                                         <span>{t("seeMyJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
-                                {isMounted && isAuthenticated && (
+                                {/* Only render badge after mount to avoid hydration mismatch */}
+                                {isMounted && isAuthenticated && jobs.length > 0 ? (
                                     <SidebarMenuBadge>{jobs.length}</SidebarMenuBadge>
-                                )}
+                                ) : null}
                             </SidebarMenuItem>
-                            {isMounted && isAuthenticated && ( // Ensure Collapsible renders only after mounting and user is authenticated
-                                <Collapsible
-                                    open={isCollapsibleOpen}
-                                    onOpenChange={setIsCollapsibleOpen} // Update state on change
-                                    className="group/collapsible"
-                                >
-                                    <SidebarMenuItem>
-                                        <CollapsibleTrigger
-                                            asChild
-                                            className={state === "collapsed" && !isMobile ? "pointer-events-none opacity-50" : ""} // Allow toggling on mobile
+                            {isMounted && isAuthenticated && (
+                                // Calculate recent jobs count once for both badge and content
+                                (() => {
+                                    const recentJobs = jobs.filter((job: any) => {
+                                        const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
+                                        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                                        return jobDate.getTime() > oneHourAgo.getTime();
+                                    });
+                                    return recentJobs.length > 0 ? (
+                                        <Collapsible
+                                            open={isCollapsibleOpen}
+                                            onOpenChange={setIsCollapsibleOpen}
+                                            className="group/collapsible"
                                         >
-                                            <SidebarMenuButton>
-                                                <ChevronDown
-                                                    className={`transition-transform ${isCollapsibleOpen ? "rotate-180" : ""}`}
-                                                />
-                                                <span>{t("recentJobs")}</span>
-                                                <SidebarMenuBadge>
-                                                    {
-                                                        jobs.filter((job: any) => {
-                                                            const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
-                                                            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000); // Calculate one hour ago in UTC
-
-                                                            return jobDate.getTime() > oneHourAgo.getTime(); // Compare timestamps in UTC
-                                                        }).length
-                                                    }
-                                                </SidebarMenuBadge>
-                                            </SidebarMenuButton>
-                                        </CollapsibleTrigger>
-                                        <CollapsibleContent>
-                                            <SidebarMenuSub>
-                                                {jobs
-                                                    .filter((job: any) => {
-                                                        const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
-                                                        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000); // Calculate one hour ago in UTC
-
-                                                        return jobDate.getTime() > oneHourAgo.getTime(); // Compare timestamps in UTC
-                                                    }) // Filter jobs from the past hour
-                                                    .sort((a: any, b: any) => new Date(b.date_done).getTime() - new Date(a.date_done).getTime()) // Sort by date_done descending
-                                                    .map((job: any) => (
-                                                        <SidebarMenuSubItem key={job.id}>
-                                                            <SidebarMenuSubButton asChild>
-                                                                <Link href={`/jobs/my/${job.id}`}>
-                                                                    <BrainCircuit />
-                                                                    <span>{job.id}</span>
-                                                                </Link>
-                                                            </SidebarMenuSubButton>
-                                                        </SidebarMenuSubItem>
-                                                    ))}
-                                            </SidebarMenuSub>
-                                        </CollapsibleContent>
-                                    </SidebarMenuItem>
-                                </Collapsible>
+                                            <SidebarMenuItem>
+                                                <CollapsibleTrigger
+                                                    asChild
+                                                    className={state === "collapsed" && !isMobile ? "pointer-events-none opacity-50" : ""}
+                                                >
+                                                    <SidebarMenuButton>
+                                                        <ChevronDown
+                                                            className={`transition-transform ${isCollapsibleOpen ? "rotate-180" : ""}`}
+                                                        />
+                                                        <span>{t("recentJobs")}</span>
+                                                        <SidebarMenuBadge>
+                                                            {recentJobs.length}
+                                                        </SidebarMenuBadge>
+                                                    </SidebarMenuButton>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent>
+                                                    <SidebarMenuSub>
+                                                        {recentJobs
+                                                            .sort((a: any, b: any) => new Date(b.date_done).getTime() - new Date(a.date_done).getTime())
+                                                            .map((job: any) => (
+                                                                <SidebarMenuSubItem key={job.id}>
+                                                                    <SidebarMenuSubButton asChild>
+                                                                        <Link href={`/jobs/my/${job.id}`}>
+                                                                            <BrainCircuit />
+                                                                            <span>{job.id}</span>
+                                                                        </Link>
+                                                                    </SidebarMenuSubButton>
+                                                                </SidebarMenuSubItem>
+                                                            ))}
+                                                    </SidebarMenuSub>
+                                                </CollapsibleContent>
+                                            </SidebarMenuItem>
+                                        </Collapsible>
+                                    ) : null;
+                                })()
                             )}
                             <SidebarMenuItem>
                                 <SidebarMenuButton

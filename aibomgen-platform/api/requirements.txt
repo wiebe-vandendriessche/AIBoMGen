@@ -14,4 +14,3 @@ mysql-connector-python
 in-toto
 cryptography
 cyclonedx-python-lib[validation]
-pymysql

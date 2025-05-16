@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { GetWorkersStats } from "@/services/celery_utils/GetWorkerStats";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const WorkersPage = () => {
     const [workerStats, setWorkerStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchWorkerStats = async () => {
@@ -15,7 +15,7 @@ const WorkersPage = () => {
                 const stats = await GetWorkersStats();
                 setWorkerStats(stats);
             } catch (err) {
-                setError("Failed to fetch worker statistics.");
+                console.error("Error fetching worker statistics:", err);
             } finally {
                 setLoading(false);
             }
@@ -25,12 +25,34 @@ const WorkersPage = () => {
     }, []);
 
     if (loading) {
-        return <div>Loading worker statistics...</div>;
+        // Show skeletons for cards
+        return (
+            <div className="p-4">
+                <h1 className="text-2xl font-bold mb-4 text-center">Worker Statistics</h1>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[...Array(3)].map((_, idx) => (
+                        <Card key={idx} className="w-full">
+                            <CardHeader>
+                                <Skeleton className="h-6 w-1/2 mb-2" />
+                                <Skeleton className="h-4 w-3/4" />
+                            </CardHeader>
+                            <CardContent>
+                                <Skeleton className="h-4 w-1/2 mb-2" />
+                                <Skeleton className="h-5 w-1/3 mb-2" />
+                                <Skeleton className="h-4 w-2/3 mb-2" />
+                                <Skeleton className="h-4 w-1/2 mb-2" />
+                                <Skeleton className="h-4 w-1/3 mb-2" />
+                                <Skeleton className="h-4 w-1/4 mb-2" />
+                                <Skeleton className="h-4 w-1/2 mb-2" />
+                                <Skeleton className="h-4 w-1/3 mb-2" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
-    if (error) {
-        return <div>Error: {error}</div>;
-    }
 
     return (
         <div className="p-4">

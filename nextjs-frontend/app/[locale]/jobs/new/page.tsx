@@ -263,12 +263,14 @@ export default function NewJobPage() {
                                     "validation_steps",
                                     "validation_freq",
                                 ] as const).map((fieldName) => {
-                                    const fieldConstraints: Record<string, { min?: number; max?: number; step?: string }> = {
-                                        validation_split: { min: 0, max: 1, step: "any" },
-                                        epochs: { min: 1, step: "1" },
-                                        initial_epoch: { min: 0, step: "1" },
-                                        batch_size: { min: 1, step: "1" },
-                                        validation_freq: { min: 1, step: "1" },
+                                    const fieldConstraints: Record<string, { min?: number; max?: number; step?: number }> = {
+                                        validation_split: { min: 0, max: 1, step: 0.01 },
+                                        epochs: { min: 1, step: 1 },
+                                        initial_epoch: { min: 0, step: 1 },
+                                        batch_size: { min: 1, step: 1 },
+                                        validation_freq: { min: 1, step: 1 },
+                                        validation_steps: { min: 0, step: 1 },
+                                        steps_per_epoch: { min: 0, step: 1 },
                                     };
 
                                     const constraints = fieldConstraints[fieldName] || {};
