@@ -3,6 +3,8 @@ from datetime import datetime
 # generate_cifar_test_files was used with following epochs:
 
 epochs_list = [1, 3, 5, 10, 20, 50]
+
+# The following timestamps were taken from the logs of the training jobs
 training_started = ["UTC: 2025-05-20 19:39:48,335", "UTC: 2025-05-20 19:39:47,891",
                     "UTC: 2025-05-20 19:39:35,070", "UTC: 2025-05-20 19:40:12,332", "UTC: 2025-05-20 19:40:12,605", "2025-05-20 20:08:39,963"]
 aibom_started = ["UTC: 2025-05-20 19:40:08,780", "UTC: 2025-05-20 19:40:09,931",
