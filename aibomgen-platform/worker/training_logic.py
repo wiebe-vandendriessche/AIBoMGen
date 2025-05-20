@@ -140,16 +140,17 @@ def load_TFRecordDataset_with_definition(task_logger, file_path, dataset_definit
     raw_dataset = tf.data.TFRecordDataset(file_path)
 
     # Build feature description from dataset definition
-    feature_description = {
-        feature: tf.io.FixedLenFeature(
-            # Handle scalar or vector features
-            shape if isinstance(shape, list) else [],
-            tf.float32 if dtype == "float" else tf.int64
-        )
-        for feature, (dtype, shape) in dataset_definition["features"].items()
-    }
-    feature_description[dataset_definition["label"]
-                        ] = tf.io.FixedLenFeature([], tf.int64)
+    feature_description = {}
+    for feature, info in dataset_definition["features"].items():
+        dtype = info.get("dtype", "float32")
+        shape = info.get("shape", [])
+        tf_dtype = tf.float32 if dtype in ["float", "float32"] else tf.int64
+        feature_description[feature] = tf.io.FixedLenFeature(shape, tf_dtype)
+
+    label_name = dataset_definition["label"]["name"]
+    label_dtype = dataset_definition["label"].get("dtype", "int64")
+    feature_description[label_name] = tf.io.FixedLenFeature(
+        [], tf.int64 if label_dtype == "int64" else tf.float32)
 
     def _parse_function(proto):
         # Parse the input tf.Example proto using the feature description
@@ -167,7 +168,7 @@ def load_TFRecordDataset_with_definition(task_logger, file_path, dataset_definit
             features = {k: parsed_features[k]
                         for k in dataset_definition["features"].keys()}
 
-        label = parsed_features[dataset_definition["label"]]
+        label = parsed_features[label_name]
 
         # Apply optional preprocessing if specified
         if "preprocessing" in dataset_definition:

@@ -158,7 +158,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
 
         elif dataset_type == "tfrecord":
             dataset = load_TFRecordDataset_with_definition(
-                dataset_path, dataset_definition)
+                task_logger, dataset_path, dataset_definition)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
