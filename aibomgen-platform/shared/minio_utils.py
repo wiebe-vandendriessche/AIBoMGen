@@ -20,6 +20,7 @@ s3_client = boto3.client(
     aws_secret_access_key=MINIO_SECRET_KEY,
 )
 
+
 def upload_file_to_minio(file_path, object_name, bucket_name):
     """Upload a file to a specific MinIO bucket."""
     try:
@@ -30,12 +31,25 @@ def upload_file_to_minio(file_path, object_name, bucket_name):
     except Exception as e:
         raise Exception(f"Failed to upload file to MinIO: {str(e)}")
 
+
 def download_file_from_minio(object_name, download_path, bucket_name):
     """Download a file from a specific MinIO bucket."""
     try:
         s3_client.download_file(bucket_name, object_name, download_path)
     except Exception as e:
         raise Exception(f"Failed to download file from MinIO: {str(e)}")
+
+
+def remove_file_from_minio(object_name, bucket_name):
+    """Remove a file from a specific MinIO bucket."""
+    try:
+        s3_client.delete_object(Bucket=bucket_name, Key=object_name)
+    except FileNotFoundError:
+        raise Exception(
+            f"The object {object_name} does not exist in bucket {bucket_name}.")
+    except Exception as e:
+        raise Exception(f"Failed to remove file from MinIO: {str(e)}")
+
 
 def create_bucket_if_not_exists():
     """Ensure all predefined buckets in MinIO are created."""
@@ -45,7 +59,8 @@ def create_bucket_if_not_exists():
             s3_client.head_bucket(Bucket=bucket_name)
         except Exception:
             s3_client.create_bucket(Bucket=bucket_name)
-        
+
+
 def list_files_in_bucket(prefix, bucket_name):
     """List all files in a specific directory (prefix) in a bucket."""
     try:
@@ -55,7 +70,8 @@ def list_files_in_bucket(prefix, bucket_name):
         return []
     except Exception as e:
         raise Exception(f"Failed to list files in bucket: {str(e)}")
-    
+
+
 def generate_presigned_url(object_name, bucket_name, expiration=3600):
     """Generate a presigned URL for a file in a specific MinIO bucket."""
     try:

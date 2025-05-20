@@ -7,7 +7,7 @@ import pandas as pd
 import json
 from transform_to_cyclonedx import serialize_bom, sign_and_include_bom_as_property, transform_to_cyclonedx, sign_bom
 from bom_data_generator import generate_basic_bom_data
-from shared.minio_utils import upload_file_to_minio, download_file_from_minio, TRAINING_BUCKET
+from shared.minio_utils import upload_file_to_minio, download_file_from_minio, TRAINING_BUCKET, remove_file_from_minio
 from shared.zip_utils import ZipValidationError, validate_and_extract_zip
 import logging
 from in_toto_link_generator import generate_in_toto_link
@@ -255,7 +255,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             f"{unique_dir}/output/trained_model.keras": record_artifact_as_dict(trained_model_path),
             f"{unique_dir}/output/metrics.json": record_artifact_as_dict(metrics_path),
         }
-        
+
         # Record input and output artifacts with local paths for BOM generation
         materials = {
             f"{unique_dir}/model/{model_filename}": {
@@ -334,15 +334,15 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         task_logger.info(f"Signing BOM data...")
         sign_and_include_bom_as_property(cyclonedx_bom, private_key_path)
         task_logger.info(f"BOM signed")
-        
+
         # Verify the signature (currently Signature not supported in CycloneDX so its added as a property in the metadata)
         if not any(prop.name == "BOM Signature" for prop in cyclonedx_bom.metadata.properties):
             raise RuntimeError("BOM signature was not added successfully.")
-            
+
         task_logger.info(f"serializing BOM data...")
         serialize_bom(cyclonedx_bom, bom_path)
         task_logger.info(f"BOM serialized: {bom_path}")
-        
+
         # Upload output artifacts to MinIO
         task_logger.info("Uploading bom to MinIO...")
         upload_file_to_minio(
@@ -358,6 +358,25 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         return result
     except Exception as e:
         task_logger.error(f"An error occurred: {str(e)}")
+
+        # remove from minio if the task fails
+        try:
+            task_logger.info(
+                f"Removing output files from MinIO if they exist for unique_dir: {unique_dir}")
+            remove_file_from_minio(
+                f"{unique_dir}/output/trained_model.keras", TRAINING_BUCKET)
+            remove_file_from_minio(
+                f"{unique_dir}/output/metrics.json", TRAINING_BUCKET)
+            remove_file_from_minio(
+                f"{unique_dir}/output/cyclonedx_bom.json", TRAINING_BUCKET)
+            remove_file_from_minio(
+                f"{unique_dir}/output/{os.path.basename(link_file_path)}", TRAINING_BUCKET)
+        except FileNotFoundError:
+            task_logger.warning(
+                f"Output files not found in MinIO for unique_dir: {unique_dir}")
+        except Exception as e:
+            task_logger.error(f"Failed to remove files from MinIO: {str(e)}")
+
         return {
             "training_status": "training job failed",
             "unique_dir": unique_dir,
@@ -383,7 +402,6 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         # Remove handlers to avoid memory leaks
         task_logger.removeHandler(file_handler)
         task_logger.removeHandler(console_handler)
-
 
 
 # model.fit(

@@ -34,7 +34,7 @@ export default function HeroSection() {
                                         size="lg"
                                         variant="ghost"
                                         className="px-5 text-base">
-                                        <Link href="#link">
+                                        <Link href="/jobs/new">
                                             <span className="text-nowrap">{t('heroRequestTrainingJob')}</span>
                                         </Link>
                                     </Button>
