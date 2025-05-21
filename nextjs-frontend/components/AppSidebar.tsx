@@ -252,6 +252,43 @@ const AppSidebar = () => {
                             </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>
+                    <SidebarGroupLabel>Verification</SidebarGroupLabel>
+                <SidebarGroupContent>
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild tooltip="BOM Verification">
+                                <Link href="/verification/bom">
+                                    <Inbox />
+                                    <span>Verify AIBOM</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild tooltip="File Verification">
+                                <Link href="/verification/file">
+                                    <Inbox />
+                                    <span>Verify a File hash</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild tooltip="Link Verification">
+                                <Link href="/verification/link">
+                                    <Inbox />
+                                    <span>Verify an in-toto link file</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild tooltip="Storage Verification">
+                                <Link href="/verification/storage">
+                                    <Inbox />
+                                    <span>Verify storage integrity</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
             <SidebarFooter>

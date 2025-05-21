@@ -58,8 +58,24 @@ export const fetcher = async (
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "An error occurred while fetching data.");
+        let errorDetail = "An error occurred while fetching data.";
+        try {
+            const error = await response.json();
+            if (error?.detail) {
+                errorDetail = error.detail;
+            } else if (error?.message) {
+                errorDetail = error.message;
+            }
+            // Attach the detail to the error object for further inspection
+            const err = new Error(errorDetail);
+            (err as any).detail = errorDetail;
+            throw err;
+        } catch {
+            // If response is not JSON, throw generic error
+            const err = new Error(errorDetail);
+            (err as any).detail = errorDetail;
+            throw err;
+        }
     }
 
     return response.json();
