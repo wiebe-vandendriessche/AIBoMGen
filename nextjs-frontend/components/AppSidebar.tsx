@@ -192,6 +192,7 @@ const AppSidebar = () => {
                                 // Calculate recent jobs count once for both badge and content
                                 (() => {
                                     const recentJobs = jobs.filter((job: any) => {
+                                        if (typeof job.date_done !== "string") return false;
                                         const jobDate = new Date(job.date_done.endsWith("Z") ? job.date_done : `${job.date_done}Z`);
                                         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
                                         return jobDate.getTime() > oneHourAgo.getTime();

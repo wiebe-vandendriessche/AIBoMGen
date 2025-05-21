@@ -1,22 +1,28 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useJobContext } from "@/components/context/JobContext";
 import { useIsAuthenticated } from "@azure/msal-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { GetMyTasks } from "@/services/celery_utils/GetMyTasks";
+import { GetMyTask } from "@/services/celery_utils/GetMyTask";
 import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GetJobArtifacts } from "@/services/developer/GetJobArtifacts";
+import { DownloadArtifact } from "@/services/developer/DownloadArtifact";
+import { Button } from "@/components/ui/button"; // If you have a Button component
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: string }> }) => {
-    const [jobid, setJobid] = useState<string | null>(null); // State to store the unwrapped jobid
-    const { jobs, setJobs } = useJobContext(); // Access the jobs data from the context
-    const isAuthenticated = useIsAuthenticated(); // Check if the user is authenticated
-    const [jobDetails, setJobDetails] = useState<any | null>(null); // State to store the job details
-    const { instance, inProgress } = useMsal(); // MSAL instance for fetching jobs
+    const [jobid, setJobid] = useState<string | null>(null);
+    const isAuthenticated = useIsAuthenticated();
+    const [jobDetails, setJobDetails] = useState<any | null>(null);
+    const { instance, inProgress } = useMsal();
+    const [loading, setLoading] = useState<boolean>(true);
+    const [artifactList, setArtifactList] = useState<string[]>([]);
+    const [selectedArtifact, setSelectedArtifact] = useState<string>("");
+    const [downloading, setDownloading] = useState<boolean>(false);
 
     // Unwrap the params Promise and set the jobid
     useEffect(() => {
@@ -25,41 +31,74 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         });
     }, [params]);
 
-    // Fetch jobs if the jobs array is empty
-    useEffect(() => {
-        const fetchJobs = async () => {
-            if (inProgress !== InteractionStatus.None || !isAuthenticated) {
-                return; // Wait for MSAL to finish initializing and ensure the user is authenticated
-            }
+    function getArtifactBasename(path: string) {
+        return path.split("/").pop() || path;
+    }
 
+    // Fetch artifact list when jobid is available
+    useEffect(() => {
+        const fetchArtifacts = async () => {
+            if (!jobid) return;
             try {
-                const data = await GetMyTasks(instance);
-                setJobs(data); // Store the fetched jobs in the context
-            } catch (error) {
-                console.error("Error fetching jobs:", error);
+                const result = await GetJobArtifacts(instance, jobid);
+                // result is { job_id, artifacts: [...] }
+                if (result && Array.isArray(result.artifacts)) {
+                    setArtifactList(result.artifacts);
+                    setSelectedArtifact(result.artifacts[0] || "");
+                }
+            } catch (e) {
+                setArtifactList([]);
             }
         };
+        fetchArtifacts();
+    }, [jobid, instance]);
 
-        if (jobs.length === 0) {
-            fetchJobs(); // Refetch jobs if the array is empty
+    // Download handler
+    const handleDownload = async () => {
+        if (!selectedArtifact) return;
+        setDownloading(true);
+        try {
+            // Only pass the basename to the backend
+            const artifactBasename = getArtifactBasename(selectedArtifact);
+            const response = await DownloadArtifact(instance, jobid!, artifactBasename + "?redirect=false");
+            if (response && response.url) {
+                window.open(response.url, "_blank");
+            }
+        } catch (e) {
+            alert("Failed to download artifact.");
         }
-    }, [jobs, instance, inProgress, isAuthenticated, setJobs]);
+        setDownloading(false);
+    };
 
-    // Find the job details once the jobid and jobs are available
+    // Fetch job details for this jobid
     useEffect(() => {
-        if (jobid && jobs.length > 0) {
-            const foundJob = jobs.find((job) => job.id === jobid);
-            setJobDetails(foundJob || null);
-        }
-    }, [jobid, jobs]);
+        const fetchJobDetails = async () => {
+            if (
+                inProgress !== InteractionStatus.None ||
+                !isAuthenticated ||
+                !jobid
+            ) {
+                return;
+            }
+            setLoading(true);
+            try {
+                const data = await GetMyTask(instance, jobid);
+                setJobDetails(data);
+            } catch (error) {
+                setJobDetails(null);
+                console.error("Error fetching job details:", error);
+            }
+            setLoading(false);
+        };
+
+        fetchJobDetails();
+    }, [jobid, instance, inProgress, isAuthenticated]);
 
     function extractModelInfo(args: any[]) {
         if (!Array.isArray(args) || args.length < 6) return {};
         const [uniqueDir, modelUrl, datasetUrl, definitionUrl, modelInfo, trainingParams] = args;
         return { uniqueDir, modelUrl, datasetUrl, definitionUrl, modelInfo, trainingParams };
     }
-
-
 
     // Redirect or show an error if the user is not authenticated
     if (!isAuthenticated) {
@@ -78,8 +117,8 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         );
     }
 
-    // Show a skeleton loader while the jobs array is empty
-    if (jobs.length === 0) {
+    // Show a skeleton loader while loading or jobid is not yet resolved
+    if (loading || !jobid) {
         return (
             <div className="p-4 flex justify-center overflow-x-clip">
                 <Card className="w-full max-w-xl">
@@ -105,29 +144,19 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         );
     }
 
-    // Show a skeleton loader while the jobid or jobDetails is being resolved
-    if (!jobid || !jobDetails) {
+    // Show error if jobDetails is null (not found or error)
+    if (!jobDetails || jobDetails.error) {
         return (
-            <div className="p-4 flex justify-center overflow-x-clip">
-                <Card className="w-full max-w-xl">
-                    <CardHeader>
-                        <CardTitle>
-                            <Skeleton className="h-6 w-32" />
-                        </CardTitle>
-                        <CardDescription>
-                            <Skeleton className="h-4 w-64" />
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="p-6 flex justify-center">
+                <Alert className="max-w-xl w-full border-red-400" variant="destructive">
+                    <AlertCircle className="h-6 w-6" />
+                    <div>
+                        <AlertTitle>Job Not Found</AlertTitle>
+                        <AlertDescription>
+                            {jobDetails?.error || "This job could not be found or you do not have access."}
+                        </AlertDescription>
+                    </div>
+                </Alert>
             </div>
         );
     }
@@ -142,7 +171,6 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         trainingParams,
     } = extractModelInfo(jobDetails.args);
 
-    // Render the job details
     return (
         <div className="p-4 flex justify-center overflow-x-clip">
             <Card className="w-full max-w-xl">
@@ -228,6 +256,41 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                                     </a>
                                 </li>
                             </ul>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="min-w-[180px] justify-between"
+                                        disabled={artifactList.length === 0}
+                                    >
+                                        {selectedArtifact
+                                            ? getArtifactBasename(selectedArtifact)
+                                            : "Select artifact"}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuLabel>Select Artifact</DropdownMenuLabel>
+                                    {artifactList.length === 0 && (
+                                        <DropdownMenuItem disabled>No artifacts</DropdownMenuItem>
+                                    )}
+                                    {artifactList.map((name) => (
+                                        <DropdownMenuItem
+                                            key={name}
+                                            onSelect={() => setSelectedArtifact(name)}
+                                        >
+                                            {getArtifactBasename(name)}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button
+                                onClick={handleDownload}
+                                disabled={!selectedArtifact || downloading}
+                            >
+                                {downloading ? "Downloading..." : "Download"}
+                            </Button>
                         </div>
                     </div>
                 </CardContent>

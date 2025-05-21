@@ -256,7 +256,7 @@ async def get_job_artifacts(job_id: str, user: User = Depends(get_current_user),
 
 
 @developer_router.get("/job_artifacts/{job_id}/{artifact_name}", dependencies=[Depends(get_current_user)])
-async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(get_current_user), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = False):
+async def download_artifact(job_id: str, artifact_name: str, user: User = Depends(get_current_user), db: Session = Depends(get_db), redirect: bool = True, test_mode: bool = True):
     user_id = user.claims.get("oid")
 
     job = db.query(Job).filter(Job.id == job_id).first()

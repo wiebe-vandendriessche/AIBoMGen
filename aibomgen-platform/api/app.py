@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    BACKEND_CORS_ORIGINGS: list[str | AnyHttpUrl] = [
+    BACKEND_CORS_ORIGINS: list[str | AnyHttpUrl] = [
         "http://localhost:8000", "http://localhost:3000"]
     OPENAPI_CLIENT_ID: str = ""
     APP_CLIENT_ID: str = ""
@@ -118,11 +118,11 @@ def initialize_database_with_retry(retries=60, delay=10):
 
 
 # === Middleware Setup ===
-if settings.BACKEND_CORS_ORIGINGS:
+if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin)
-                       for origin in settings.BACKEND_CORS_ORIGINGS],
+                       for origin in settings.BACKEND_CORS_ORIGINS],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

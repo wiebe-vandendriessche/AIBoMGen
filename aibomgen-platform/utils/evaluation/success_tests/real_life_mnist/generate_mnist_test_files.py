@@ -13,7 +13,7 @@ model_filename = os.path.join(downloads_folder, "mnist_model.keras")
 zip_filename = os.path.join(downloads_folder, "mnist_dataset.zip")
 
 
-def save_mnist_images(images, labels, base_folder, max_per_class=5000):
+def save_mnist_images(images, labels, base_folder, max_per_class=500):
     """Save up to max_per_class MNIST images per class to disk in class subfolders."""
     os.makedirs(base_folder, exist_ok=True)
     class_counts = {i: 0 for i in range(10)}
