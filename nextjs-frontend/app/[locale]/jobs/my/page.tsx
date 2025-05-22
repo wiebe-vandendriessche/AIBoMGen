@@ -11,7 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Clipboard, ExternalLink, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
-
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import {
   ColumnDef,
   SortingState,
@@ -27,12 +28,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React from "react";
 import { useJobContext } from "@/components/context/JobContext";
+import { useTranslations } from "next-intl";
 
 const MyJobsPage = () => {
   const { instance, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const { jobs, setJobs } = useJobContext(); // Access the context to set jobs
   const [loading, setLoading] = useState(true);
+  const t = useTranslations("Jobs");
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -68,19 +71,31 @@ const MyJobsPage = () => {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          ID
+          {t("id")}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => (
         <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigator.clipboard.writeText(row.getValue("id"))}
-          >
-            <Clipboard className="h-4 w-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(row.getValue("id"));
+                    toast.success(t("copiedJobId"));
+                  }}
+                >
+                  <Clipboard className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t("copyJobId")}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span>{row.getValue("id")}</span>
         </div>
       ),
@@ -92,7 +107,7 @@ const MyJobsPage = () => {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          State
+          {t("state")}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
@@ -105,11 +120,11 @@ const MyJobsPage = () => {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Training Status
+          {t("trainingStatus")}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => row.original.result?.training_status || "N/A",
+      cell: ({ row }) => row.original.result?.training_status || t("na"),
     },
     {
       accessorKey: "result.unique_dir",
@@ -118,11 +133,11 @@ const MyJobsPage = () => {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Unique Directory
+          {t("uniqueDirectory")}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => row.original.result?.unique_dir || "N/A",
+      cell: ({ row }) => row.original.result?.unique_dir || t("na"),
     },
     {
       accessorKey: "date_done",
@@ -131,25 +146,25 @@ const MyJobsPage = () => {
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Date Done
+          {t("dateDone")}
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => {
         const dateDone = row.getValue("date_done");
-        if (!dateDone) return "N/A";
+        if (!dateDone) return t("na");
 
         return `${dateDone} UTC`;
       },
     },
     {
       id: "actions",
-      header: "Actions",
+      header: t("actions"),
       cell: ({ row }) => (
         <Link href={`/jobs/my/${row.getValue("id")}`}>
           <Button variant="ghost" size="sm">
             <ExternalLink className="h-4 w-4" />
-            Open
+            {t("open")}
           </Button>
         </Link>
       ),
@@ -182,9 +197,9 @@ const MyJobsPage = () => {
         <Alert className="max-w-xl w-full border-red-400" variant="destructive">
           <AlertCircle className="h-6 w-6" />
           <div>
-            <AlertTitle>Access Denied</AlertTitle>
+            <AlertTitle>{t("accessDenied")}</AlertTitle>
             <AlertDescription>
-              You are not logged in. Please log in to access your jobs.
+              {t("notLoggedIn")}
             </AlertDescription>
           </div>
         </Alert>
@@ -195,7 +210,7 @@ const MyJobsPage = () => {
   if (loading) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">My Jobs</h1>
+        <h1 className="text-2xl font-bold mb-6">{t("myJobsTitle")}</h1>
         <div className="flex items-center py-4">
           <Skeleton className="h-10 w-64" />
         </div>
@@ -204,11 +219,11 @@ const MyJobsPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead>Training Status</TableHead>
-                  <TableHead>Unique Directory</TableHead>
-                  <TableHead>Date Done</TableHead>
+                  <TableHead>{t("id")}</TableHead>
+                  <TableHead>{t("state")}</TableHead>
+                  <TableHead>{t("trainingStatus")}</TableHead>
+                  <TableHead>{t("uniqueDirectory")}</TableHead>
+                  <TableHead>{t("dateDone")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -245,10 +260,10 @@ const MyJobsPage = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">My Jobs</h1>
+      <h1 className="text-2xl font-bold mb-6">{t("myJobsTitle")}</h1>
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter jobs by ID..."
+          placeholder={t("filterJobsById")}
           className="max-w-sm"
           value={(table.getColumn("id")?.getFilterValue() as string) ?? ""}
           onChange={(e) =>
@@ -291,7 +306,7 @@ const MyJobsPage = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
-                  No results.
+                  {t("noResults")}
                 </TableCell>
               </TableRow>
             )}
@@ -307,7 +322,7 @@ const MyJobsPage = () => {
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Previous
+          {t("previous")}
         </Button>
         <Button
           variant="outline"
@@ -315,10 +330,9 @@ const MyJobsPage = () => {
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Next
+          {t("next")}
         </Button>
       </div>
-
     </div>
   );
 };

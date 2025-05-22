@@ -4,10 +4,8 @@ import { Toaster } from "sonner";
 import { useTheme } from "next-themes";
 
 export default function ClientToaster() {
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
-  // Map the theme to "light" or "dark" for Sonner
-  const mappedTheme = theme === "dark" ? "dark" : "light";
-
-  return <Toaster theme={mappedTheme} />;
+  // resolvedTheme is always "light" or "dark"
+  return <Toaster theme={resolvedTheme === "dark" ? "dark" : "light"} />;
 }

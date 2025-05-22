@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, HTTPException, File
 import os
 import json
 import base64
+import shutil
 from fastapi.responses import JSONResponse
 from in_toto.models.metadata import Metablock
 from in_toto.verifylib import in_toto_verify
@@ -36,6 +37,34 @@ async def verify_in_toto(
         # Save the uploaded link file temporarily
         temp_dir = "/tmp/verify"
         link_path = save_uploaded_file(link_file, temp_dir)
+
+        # --- Enforce correct .link filename ---
+        # Load the layout to get expected step names and keyids
+        layout_path = "/run/secrets/signed_layout"
+        layout_metadata = Metablock.load(layout_path)
+        expected_filenames = []
+        for step in layout_metadata.signed.steps:
+            for keyid in layout_metadata.signed.keys.keys():
+                expected_filenames.append(f"{step.name}.{keyid[:8]}.link")
+
+        # Try to match the uploaded file to one of the expected filenames
+        matched = False
+        for expected_filename in expected_filenames:
+            # allow for keyid length >8
+            if link_file.filename.startswith(expected_filename[:-5]):
+                # Rename the file to the exact expected filename
+                correct_path = os.path.join(temp_dir, expected_filename)
+                shutil.move(link_path, correct_path)
+                link_path = correct_path
+                matched = True
+                break
+
+        if not matched:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Uploaded .link file must be named as one of: {expected_filenames}"
+            )
+        # --- End enforce filename ---
 
         # Use the helper function to verify the .link file
         verify_link_file(link_path, temp_dir)

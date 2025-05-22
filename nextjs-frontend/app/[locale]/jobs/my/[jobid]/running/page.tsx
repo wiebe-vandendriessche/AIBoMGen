@@ -10,6 +10,8 @@ import { useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 export default function RunningJobPage() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function RunningJobPage() {
   const { instance, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const firstLoad = useRef(true);
+  const t = useTranslations("Jobs");
 
   // Poll for running job details every 5 seconds
   useEffect(() => {
@@ -33,12 +36,18 @@ export default function RunningJobPage() {
       ) {
         return;
       }
-      // Only show skeleton on first load
       if (firstLoad.current) setIsLoading(true);
       try {
         const data = await GetMyRunningTask(instance, jobid as string);
         if (data?.error === "Task is not currently running.") {
-          router.replace(`/jobs/my/${jobid}`);
+          // Show toast before redirecting
+          toast.success("Job finished!", {
+            description: "The job has finished running. Redirecting to job details...",
+            duration: 4000,
+          });
+          setTimeout(() => {
+            router.replace(`/jobs/my/${jobid}`);
+          }, 1500);
           return;
         }
         if (!cancelled) setJobDetails(data);
@@ -71,9 +80,9 @@ export default function RunningJobPage() {
         <Alert className="max-w-xl w-full border-red-400" variant="destructive">
           <AlertCircle className="h-6 w-6" />
           <div>
-            <AlertTitle>Access Denied</AlertTitle>
+            <AlertTitle>{t("accessDenied")}</AlertTitle>
             <AlertDescription>
-              You are not logged in. Please log in to access running job details.
+              {t("notLoggedInRunning")}
             </AlertDescription>
           </div>
         </Alert>
@@ -113,9 +122,9 @@ export default function RunningJobPage() {
         <Alert className="max-w-xl w-full border-red-400" variant="destructive">
           <AlertCircle className="h-6 w-6" />
           <div>
-            <AlertTitle>Job Not Found</AlertTitle>
+            <AlertTitle>{t("jobNotFound")}</AlertTitle>
             <AlertDescription>
-              {jobDetails?.error || "This running job could not be found or you do not have access."}
+              {jobDetails?.error || t("jobNotFoundDesc")}
             </AlertDescription>
           </div>
         </Alert>
@@ -137,76 +146,76 @@ export default function RunningJobPage() {
       <Card className="w-full max-w-xl">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle>Running Job</CardTitle>
+            <CardTitle>{t("runningJobTitle")}</CardTitle>
             <Loader2 className="animate-spin text-accent-foreground" />
           </div>
-          <CardDescription>Details of the running job</CardDescription>
+          <CardDescription>{t("runningJobDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
-              <strong>ID:</strong> {jobDetails.id}
+              <strong>{t("id")}:</strong> {jobDetails.id}
             </div>
             <div>
-              <strong>State:</strong> {jobDetails.state}
+              <strong>{t("state")}:</strong> {jobDetails.state}
             </div>
             <div>
-              <strong>Worker:</strong> {jobDetails.worker || "N/A"}
+              <strong>{t("worker")}:</strong> {jobDetails.worker || t("na")}
             </div>
             <div>
-              <strong>Unique Directory:</strong> {uniqueDir || "N/A"}
+              <strong>{t("uniqueDirectory")}:</strong> {uniqueDir || t("na")}
             </div>
             <div>
-              <strong>Time Started:</strong> {jobDetails.time_start ? new Date(jobDetails.time_start * 1000).toLocaleString() + " UTC" : "N/A"}
+              <strong>{t("timeStarted")}:</strong> {jobDetails.time_start ? new Date(jobDetails.time_start * 1000).toLocaleString() + " UTC" : t("na")}
             </div>
             <div>
-              <strong>Model Info:</strong>
+              <strong>{t("modelInfo")}:</strong>
               <ul className="ml-4">
-                <li><strong>Name:</strong> {modelInfo?.model_name || "N/A"}</li>
-                <li><strong>Framework:</strong> {modelInfo?.framework || "N/A"}</li>
-                <li><strong>Description:</strong> {modelInfo?.model_description || "N/A"}</li>
-                <li><strong>Author:</strong> {modelInfo?.author || "N/A"}</li>
-                <li><strong>Version:</strong> {modelInfo?.model_version || "N/A"}</li>
-                <li><strong>Type:</strong> {modelInfo?.model_type || "N/A"}</li>
-                <li><strong>Base Model:</strong> {modelInfo?.base_model || "N/A"}</li>
-                <li><strong>Base Model Source:</strong> {modelInfo?.base_model_source || "N/A"}</li>
-                <li><strong>Intended Use:</strong> {modelInfo?.intended_use || "N/A"}</li>
-                <li><strong>Out of Scope:</strong> {modelInfo?.out_of_scope || "N/A"}</li>
-                <li><strong>Misuse or Malicious:</strong> {modelInfo?.misuse_or_malicious || "N/A"}</li>
-                <li><strong>License:</strong> {modelInfo?.license_name || "N/A"}</li>
+                <li><strong>{t("modelName")}:</strong> {modelInfo?.model_name || t("na")}</li>
+                <li><strong>{t("framework")}:</strong> {modelInfo?.framework || t("na")}</li>
+                <li><strong>{t("modelDescription")}:</strong> {modelInfo?.model_description || t("na")}</li>
+                <li><strong>{t("author")}:</strong> {modelInfo?.author || t("na")}</li>
+                <li><strong>{t("modelVersion")}:</strong> {modelInfo?.model_version || t("na")}</li>
+                <li><strong>{t("modelType")}:</strong> {modelInfo?.model_type || t("na")}</li>
+                <li><strong>{t("baseModel")}:</strong> {modelInfo?.base_model || t("na")}</li>
+                <li><strong>{t("baseModelSource")}:</strong> {modelInfo?.base_model_source || t("na")}</li>
+                <li><strong>{t("intendedUse")}:</strong> {modelInfo?.intended_use || t("na")}</li>
+                <li><strong>{t("outOfScope")}:</strong> {modelInfo?.out_of_scope || t("na")}</li>
+                <li><strong>{t("misuseOrMalicious")}:</strong> {modelInfo?.misuse_or_malicious || t("na")}</li>
+                <li><strong>{t("license")}:</strong> {modelInfo?.license_name || t("na")}</li>
               </ul>
             </div>
             <div>
-              <strong>Training Parameters:</strong>
+              <strong>{t("trainingParameters")}:</strong>
               <ul className="ml-4">
-                <li><strong>Epochs:</strong> {trainingParams?.epochs ?? "N/A"}</li>
-                <li><strong>Batch Size:</strong> {trainingParams?.batch_size ?? "N/A"}</li>
-                <li><strong>Validation Split:</strong> {trainingParams?.validation_split ?? "N/A"}</li>
-                <li><strong>Initial Epoch:</strong> {trainingParams?.initial_epoch ?? "N/A"}</li>
-                <li><strong>Steps per Epoch:</strong> {trainingParams?.steps_per_epoch ?? "N/A"}</li>
-                <li><strong>Validation Steps:</strong> {trainingParams?.validation_steps ?? "N/A"}</li>
-                <li><strong>Validation Freq:</strong> {trainingParams?.validation_freq ?? "N/A"}</li>
+                <li><strong>{t("epochs")}:</strong> {trainingParams?.epochs ?? t("na")}</li>
+                <li><strong>{t("batchSize")}:</strong> {trainingParams?.batch_size ?? t("na")}</li>
+                <li><strong>{t("validationSplit")}:</strong> {trainingParams?.validation_split ?? t("na")}</li>
+                <li><strong>{t("initialEpoch")}:</strong> {trainingParams?.initial_epoch ?? t("na")}</li>
+                <li><strong>{t("stepsPerEpoch")}:</strong> {trainingParams?.steps_per_epoch ?? t("na")}</li>
+                <li><strong>{t("validationSteps")}:</strong> {trainingParams?.validation_steps ?? t("na")}</li>
+                <li><strong>{t("validationFreq")}:</strong> {trainingParams?.validation_freq ?? t("na")}</li>
               </ul>
             </div>
             <div>
-              <strong>Artifacts:</strong>
+              <strong>{t("artifacts")}:</strong>
               <ul className="ml-4">
                 <li>
-                  <strong>Model URL:</strong><br />
+                  <strong>{t("modelUrl")}:</strong><br />
                   <a href={modelUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                    {modelUrl || "N/A"}
+                    {modelUrl || t("na")}
                   </a>
                 </li>
                 <li>
-                  <strong>Dataset URL:</strong><br />
+                  <strong>{t("datasetUrl")}:</strong><br />
                   <a href={datasetUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                    {datasetUrl || "N/A"}
+                    {datasetUrl || t("na")}
                   </a>
                 </li>
                 <li>
-                  <strong>Definition URL:</strong><br />
+                  <strong>{t("definitionUrl")}:</strong><br />
                   <a href={definitionUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                    {definitionUrl || "N/A"}
+                    {definitionUrl || t("na")}
                   </a>
                 </li>
               </ul>

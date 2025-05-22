@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   title: "AIBoMGen: Dashboard",
   description: "AIBoMGen: tool for thrustworthy AI-generated BOMs",
   icons: {
-    icon: "logo.svg",
+    icon: "/logo.svg",
   }
 };
 

@@ -13,6 +13,10 @@ import { GetJobArtifacts } from "@/services/developer/GetJobArtifacts";
 import { DownloadArtifact } from "@/services/developer/DownloadArtifact";
 import { Button } from "@/components/ui/button"; // If you have a Button component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Clipboard } from "lucide-react";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: string }> }) => {
     const [jobid, setJobid] = useState<string | null>(null);
@@ -23,6 +27,7 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
     const [artifactList, setArtifactList] = useState<string[]>([]);
     const [selectedArtifact, setSelectedArtifact] = useState<string>("");
     const [downloading, setDownloading] = useState<boolean>(false);
+    const t = useTranslations("Jobs");
 
     // Unwrap the params Promise and set the jobid
     useEffect(() => {
@@ -63,9 +68,10 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
             const response = await DownloadArtifact(instance, jobid!, artifactBasename + "?redirect=false");
             if (response && response.url) {
                 window.open(response.url, "_blank");
+                toast.success("Artifact download started!");
             }
         } catch (e) {
-            alert("Failed to download artifact.");
+            toast.error("Failed to download artifact.");
         }
         setDownloading(false);
     };
@@ -107,9 +113,9 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                 <Alert className="max-w-xl w-full border-red-400" variant="destructive">
                     <AlertCircle className="h-6 w-6" />
                     <div>
-                        <AlertTitle>Access Denied</AlertTitle>
+                        <AlertTitle>{t("accessDenied")}</AlertTitle>
                         <AlertDescription>
-                            You are not logged in. Please log in to access job details.
+                            {t("notLoggedIn")}
                         </AlertDescription>
                     </div>
                 </Alert>
@@ -151,9 +157,9 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                 <Alert className="max-w-xl w-full border-red-400" variant="destructive">
                     <AlertCircle className="h-6 w-6" />
                     <div>
-                        <AlertTitle>Job Not Found</AlertTitle>
+                        <AlertTitle>{t("jobNotFound")}</AlertTitle>
                         <AlertDescription>
-                            {jobDetails?.error || "This job could not be found or you do not have access."}
+                            {jobDetails?.error || t("jobNotFoundDesc")}
                         </AlertDescription>
                     </div>
                 </Alert>
@@ -175,84 +181,106 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
         <div className="p-4 flex justify-center overflow-x-clip">
             <Card className="w-full max-w-xl">
                 <CardHeader>
-                    <CardTitle>Job Details</CardTitle>
-                    <CardDescription>Details of the selected job</CardDescription>
+                    <CardTitle>{t("jobDetailsTitle")}</CardTitle>
+                    <CardDescription>{t("jobDetailsDesc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        <div>
-                            <strong>ID:</strong> {jobDetails.id}
+                        <div className="flex items-center">
+                            <strong>{t("id")}:</strong>
+                            <span className="ml-2">{jobDetails.id}</span>
+                            <span className="ml-6">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(jobDetails.id);
+                                                    toast.success(t("copiedJobId"));
+                                                }}
+                                            >
+                                                <Clipboard className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {t("copyJobId")}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </span>
                         </div>
                         <div>
-                            <strong>State:</strong> {jobDetails.state}
+                            <strong>{t("state")}:</strong> {jobDetails.state}
                         </div>
                         <div>
-                            <strong>Worker:</strong> {jobDetails.worker || "N/A"}
+                            <strong>{t("worker")}:</strong> {jobDetails.worker || t("na")}
                         </div>
                         <div>
-                            <strong>Training Status:</strong> {jobDetails.result?.training_status || "N/A"}
+                            <strong>{t("trainingStatus")}:</strong> {jobDetails.result?.training_status || t("na")}
                         </div>
                         <div>
-                            <strong>Unique Directory:</strong> {jobDetails.result?.unique_dir || uniqueDir || "N/A"}
+                            <strong>{t("uniqueDirectory")}:</strong> {jobDetails.result?.unique_dir || uniqueDir || t("na")}
                         </div>
                         <div>
-                            <strong>Date Done:</strong> {jobDetails.date_done ? new Date(jobDetails.date_done).toLocaleString() + " UTC" : "N/A"}
+                            <strong>{t("dateDone")}:</strong> {jobDetails.date_done ? new Date(jobDetails.date_done).toLocaleString() + " UTC" : t("na")}
                         </div>
                         <div>
-                            <strong>Message:</strong> {jobDetails.result?.message || jobDetails.info?.message || "N/A"}
+                            <strong>{t("message")}:</strong> {jobDetails.result?.message || jobDetails.info?.message || t("na")}
                         </div>
                         <div>
-                            <strong>Error:</strong> {jobDetails.result?.error || "N/A"}
+                            <strong>{t("error")}:</strong> {jobDetails.result?.error || t("na")}
                         </div>
                         <hr />
                         <div>
-                            <strong>Model Info:</strong>
+                            <strong>{t("modelInfo")}:</strong>
                             <ul className="ml-4">
-                                <li><strong>Name:</strong> {modelInfo?.model_name || "N/A"}</li>
-                                <li><strong>Framework:</strong> {modelInfo?.framework || "N/A"}</li>
-                                <li><strong>Description:</strong> {modelInfo?.model_description || "N/A"}</li>
-                                <li><strong>Author:</strong> {modelInfo?.author || "N/A"}</li>
-                                <li><strong>Version:</strong> {modelInfo?.model_version || "N/A"}</li>
-                                <li><strong>Type:</strong> {modelInfo?.model_type || "N/A"}</li>
-                                <li><strong>Base Model:</strong> {modelInfo?.base_model || "N/A"}</li>
-                                <li><strong>Base Model Source:</strong> {modelInfo?.base_model_source || "N/A"}</li>
-                                <li><strong>Intended Use:</strong> {modelInfo?.intended_use || "N/A"}</li>
-                                <li><strong>Out of Scope:</strong> {modelInfo?.out_of_scope || "N/A"}</li>
-                                <li><strong>Misuse or Malicious:</strong> {modelInfo?.misuse_or_malicious || "N/A"}</li>
-                                <li><strong>License:</strong> {modelInfo?.license_name || "N/A"}</li>
+                                <li><strong>{t("modelName")}:</strong> {modelInfo?.model_name || t("na")}</li>
+                                <li><strong>{t("framework")}:</strong> {modelInfo?.framework || t("na")}</li>
+                                <li><strong>{t("modelDescription")}:</strong> {modelInfo?.model_description || t("na")}</li>
+                                <li><strong>{t("author")}:</strong> {modelInfo?.author || t("na")}</li>
+                                <li><strong>{t("modelVersion")}:</strong> {modelInfo?.model_version || t("na")}</li>
+                                <li><strong>{t("modelType")}:</strong> {modelInfo?.model_type || t("na")}</li>
+                                <li><strong>{t("baseModel")}:</strong> {modelInfo?.base_model || t("na")}</li>
+                                <li><strong>{t("baseModelSource")}:</strong> {modelInfo?.base_model_source || t("na")}</li>
+                                <li><strong>{t("intendedUse")}:</strong> {modelInfo?.intended_use || t("na")}</li>
+                                <li><strong>{t("outOfScope")}:</strong> {modelInfo?.out_of_scope || t("na")}</li>
+                                <li><strong>{t("misuseOrMalicious")}:</strong> {modelInfo?.misuse_or_malicious || t("na")}</li>
+                                <li><strong>{t("license")}:</strong> {modelInfo?.license_name || t("na")}</li>
                             </ul>
                         </div>
                         <div>
-                            <strong>Training Parameters:</strong>
+                            <strong>{t("trainingParameters")}:</strong>
                             <ul className="ml-4">
-                                <li><strong>Epochs:</strong> {trainingParams?.epochs ?? "N/A"}</li>
-                                <li><strong>Batch Size:</strong> {trainingParams?.batch_size ?? "N/A"}</li>
-                                <li><strong>Validation Split:</strong> {trainingParams?.validation_split ?? "N/A"}</li>
-                                <li><strong>Initial Epoch:</strong> {trainingParams?.initial_epoch ?? "N/A"}</li>
-                                <li><strong>Steps per Epoch:</strong> {trainingParams?.steps_per_epoch ?? "N/A"}</li>
-                                <li><strong>Validation Steps:</strong> {trainingParams?.validation_steps ?? "N/A"}</li>
-                                <li><strong>Validation Freq:</strong> {trainingParams?.validation_freq ?? "N/A"}</li>
+                                <li><strong>{t("epochs")}:</strong> {trainingParams?.epochs ?? t("na")}</li>
+                                <li><strong>{t("batchSize")}:</strong> {trainingParams?.batch_size ?? t("na")}</li>
+                                <li><strong>{t("validationSplit")}:</strong> {trainingParams?.validation_split ?? t("na")}</li>
+                                <li><strong>{t("initialEpoch")}:</strong> {trainingParams?.initial_epoch ?? t("na")}</li>
+                                <li><strong>{t("stepsPerEpoch")}:</strong> {trainingParams?.steps_per_epoch ?? t("na")}</li>
+                                <li><strong>{t("validationSteps")}:</strong> {trainingParams?.validation_steps ?? t("na")}</li>
+                                <li><strong>{t("validationFreq")}:</strong> {trainingParams?.validation_freq ?? t("na")}</li>
                             </ul>
                         </div>
                         <div>
-                            <strong>Artifacts:</strong>
+                            <strong>{t("artifacts")}:</strong>
                             <ul className="ml-4">
                                 <li>
-                                    <strong>Model URL:</strong><br />
+                                    <strong>{t("modelUrl")}:</strong><br />
                                     <a href={modelUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                                        {modelUrl || "N/A"}
+                                        {modelUrl || t("na")}
                                     </a>
                                 </li>
                                 <li>
-                                    <strong>Dataset URL:</strong><br />
+                                    <strong>{t("datasetUrl")}:</strong><br />
                                     <a href={datasetUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                                        {datasetUrl || "N/A"}
+                                        {datasetUrl || t("na")}
                                     </a>
                                 </li>
                                 <li>
-                                    <strong>Definition URL:</strong><br />
+                                    <strong>{t("definitionUrl")}:</strong><br />
                                     <a href={definitionUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                                        {definitionUrl || "N/A"}
+                                        {definitionUrl || t("na")}
                                     </a>
                                 </li>
                             </ul>
@@ -267,13 +295,13 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                                     >
                                         {selectedArtifact
                                             ? getArtifactBasename(selectedArtifact)
-                                            : "Select artifact"}
+                                            : t("selectArtifact")}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <DropdownMenuLabel>Select Artifact</DropdownMenuLabel>
+                                    <DropdownMenuLabel>{t("selectArtifact")}</DropdownMenuLabel>
                                     {artifactList.length === 0 && (
-                                        <DropdownMenuItem disabled>No artifacts</DropdownMenuItem>
+                                        <DropdownMenuItem disabled>{t("noArtifacts")}</DropdownMenuItem>
                                     )}
                                     {artifactList.map((name) => (
                                         <DropdownMenuItem
@@ -289,7 +317,7 @@ const JobDetailsPage = ({ params }: { params: Promise<{ locale: string; jobid: s
                                 onClick={handleDownload}
                                 disabled={!selectedArtifact || downloading}
                             >
-                                {downloading ? "Downloading..." : "Download"}
+                                {downloading ? t("downloading") : t("download")}
                             </Button>
                         </div>
                     </div>

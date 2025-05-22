@@ -1,6 +1,6 @@
 "use client"
 
-import { BrainCircuit, Calendar, ChevronDown, ChevronUp, CloudCog, Cookie, GlobeLock, Home, Inbox, Plus, Projector, Search, Settings, User2 } from "lucide-react";
+import { BrainCircuit, ChevronDown, CloudCog, Cookie, GlobeLock, Hash, Inbox, Plus, Projector, ShieldCheck, LinkIcon, DatabaseZap, BriefcaseBusiness } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -179,7 +179,7 @@ const AppSidebar = () => {
                                     tooltip={t("seeMyJobs")} // Tooltip
                                 >
                                     <Link href="/jobs/my">
-                                        <Projector />
+                                        <BriefcaseBusiness />
                                         <span>{t("seeMyJobs")}</span>
                                     </Link>
                                 </SidebarMenuButton>
@@ -242,48 +242,48 @@ const AppSidebar = () => {
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     asChild
-                                    tooltip="Active Workers"
+                                    tooltip={t("activeWorkers")}
                                 >
                                     <Link href="/workers">
                                         <CloudCog />
-                                        <span>Active Workers</span>
+                                        <span>{t("activeWorkers")}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>
-                    <SidebarGroupLabel>Verification</SidebarGroupLabel>
+                    <SidebarGroupLabel>{t("verification")}</SidebarGroupLabel>
                 <SidebarGroupContent>
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="BOM Verification">
+                            <SidebarMenuButton asChild tooltip={t("verifyAIBOM")}>
                                 <Link href="/verification/bom">
-                                    <Inbox />
-                                    <span>Verify AIBOM</span>
+                                    <ShieldCheck />
+                                    <span>{t("verifyAIBOM")}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="File Verification">
+                            <SidebarMenuButton asChild tooltip={t("verifyFileHash")}>
                                 <Link href="/verification/file">
-                                    <Inbox />
-                                    <span>Verify a File hash</span>
+                                    <Hash />
+                                    <span>{t("verifyFileHash")}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="Link Verification">
+                            <SidebarMenuButton asChild tooltip={t("verifyLinkFile")}>
                                 <Link href="/verification/link">
-                                    <Inbox />
-                                    <span>Verify an in-toto link file</span>
+                                    <LinkIcon />
+                                    <span>{t("verifyLinkFile")}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip="Storage Verification">
+                            <SidebarMenuButton asChild tooltip={t("verifyStorageIntegrity")}>
                                 <Link href="/verification/storage">
-                                    <Inbox />
-                                    <span>Verify storage integrity</span>
+                                    <DatabaseZap />
+                                    <span>{t("verifyStorageIntegrity")}</span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

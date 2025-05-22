@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { SubmitJob } from "@/services/developer/SubmitJob";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { steps } from "motion/react";
+import { useTranslations } from "next-intl";
 
 const jobFormSchema = z.object({
     model: z
@@ -79,6 +80,7 @@ function capitalize(str: string): string {
 export default function NewJobPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openItems, setOpenItems] = useState<string[]>([]);
+    const t = useTranslations("Jobs");
 
     const { instance } = useMsal();
     const router = useRouter();
@@ -165,7 +167,7 @@ export default function NewJobPage() {
 
     return (
         <div className="max-w-3xl mx-auto p-4">
-            <h1 className="text-2xl font-bold mb-4">Submit a New Job</h1>
+            <h1 className="text-2xl font-bold mb-4">{t("submitNewJobTitle")}</h1>
             <Form {...form}>
                 <form
                     onSubmit={form.handleSubmit(onSubmit, handleValidationErrors)}
@@ -179,14 +181,14 @@ export default function NewJobPage() {
                     >
                         {/* Required Parameters */}
                         <AccordionItem value="required-parameters">
-                            <AccordionTrigger>Required Parameters</AccordionTrigger>
+                            <AccordionTrigger>{t("requiredParameters")}</AccordionTrigger>
                             <AccordionContent>
                                 <FormField
                                     name="model"
                                     control={form.control}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Model File</FormLabel>
+                                            <FormLabel>{t("modelFile")}</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="file"
@@ -203,7 +205,7 @@ export default function NewJobPage() {
                                     control={form.control}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Dataset File</FormLabel>
+                                            <FormLabel>{t("datasetFile")}</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="file"
@@ -220,7 +222,7 @@ export default function NewJobPage() {
                                     control={form.control}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Dataset Definition File</FormLabel>
+                                            <FormLabel>{t("datasetDefinitionFile")}</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="file"
@@ -237,12 +239,12 @@ export default function NewJobPage() {
                                     control={form.control}
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Framework</FormLabel>
+                                            <FormLabel>{t("framework")}</FormLabel>
                                             <FormControl>
                                                 <Input value={field.value} readOnly />
                                             </FormControl>
                                             <FormDescription>
-                                                Currently, only TensorFlow 2.16.1 is supported.
+                                                {t("frameworkDescription")}
                                             </FormDescription>
                                         </FormItem>
                                     )}
@@ -252,7 +254,7 @@ export default function NewJobPage() {
 
                         {/* Training Parameters */}
                         <AccordionItem value="training-parameters">
-                            <AccordionTrigger>Training Parameters</AccordionTrigger>
+                            <AccordionTrigger>{t("trainingParameters")}</AccordionTrigger>
                             <AccordionContent>
                                 {([
                                     "epochs",
@@ -282,11 +284,11 @@ export default function NewJobPage() {
                                             control={form.control}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>{capitalize(fieldName.replace(/_/g, " "))}</FormLabel>
+                                                    <FormLabel>{t(fieldName)}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             type="number"
-                                                            placeholder={`Enter ${fieldName}`}
+                                                            placeholder={t("enterField", { field: t(fieldName) })}
                                                             value={field.value || ""}
                                                             min={constraints.min}
                                                             max={constraints.max}
@@ -309,10 +311,10 @@ export default function NewJobPage() {
 
                         {/* User Defined Parameters */}
                         <AccordionItem value="user-defined-parameters">
-                            <AccordionTrigger>User Defined Parameters</AccordionTrigger>
+                            <AccordionTrigger>{t("userDefinedParameters")}</AccordionTrigger>
                             <AccordionContent>
                                 <p className="text-sm text-gray-600 mb-4">
-                                    Optional user input params will be included in the AIBoM but are not trusted truth because the author of a model can write what they want. However, we guarantee that the author specified these as recorded in the AIBoM.
+                                    {t("userDefinedParametersDesc")}
                                 </p>
                                 {([
                                     "model_name",
@@ -334,13 +336,13 @@ export default function NewJobPage() {
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {capitalize(fieldName.replace(/_/g, " "))} (Optional)
+                                                    {t(fieldName)} {t("optional")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     {["model_description", "intended_use", "out_of_scope", "misuse_or_malicious"].includes(fieldName) ? (
-                                                        <Textarea placeholder={`Enter ${fieldName}`} {...field} />
+                                                        <Textarea placeholder={t("enterField", { field: t(fieldName) })} {...field} />
                                                     ) : (
-                                                        <Input placeholder={`Enter ${fieldName}`} {...field} />
+                                                        <Input placeholder={t("enterField", { field: t(fieldName) })} {...field} />
                                                     )}
                                                 </FormControl>
                                                 <FormMessage />
@@ -354,7 +356,7 @@ export default function NewJobPage() {
 
                     {/* Submit Button */}
                     <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Submitting..." : "Submit Job"}
+                        {isSubmitting ? t("submitting") : t("submitJob")}
                     </Button>
                 </form>
             </Form>

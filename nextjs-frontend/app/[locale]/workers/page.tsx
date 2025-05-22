@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { GetWorkersStats } from "@/services/celery_utils/GetWorkerStats";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslations } from "next-intl";
 
 const WorkersPage = () => {
     const [workerStats, setWorkerStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const t = useTranslations("Workers");
 
     useEffect(() => {
         const fetchWorkerStats = async () => {
@@ -28,7 +30,7 @@ const WorkersPage = () => {
         // Show skeletons for cards
         return (
             <div className="p-4">
-                <h1 className="text-2xl font-bold mb-4 text-center">Worker Statistics</h1>
+                <h1 className="text-2xl font-bold mb-4 text-center">{t("title")}</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[...Array(3)].map((_, idx) => (
                         <Card key={idx} className="w-full">
@@ -56,35 +58,37 @@ const WorkersPage = () => {
 
     return (
         <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4 text-center">Worker Statistics</h1>
+            <h1 className="text-2xl font-bold mb-4 text-center">{t("title")}</h1>
             {workerStats ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Object.entries(workerStats).map(([workerName, stats]: any) => (
                         <Card key={workerName} className="w-full">
                             <CardHeader>
                                 <CardTitle>{workerName}</CardTitle>
-                                <CardDescription>PID: {stats.pid} | Uptime: {stats.uptime} seconds</CardDescription>
+                                <CardDescription>
+                                    {t("pid")}: {stats.pid} | {t("uptime")}: {stats.uptime} {t("seconds")}
+                                </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <p><strong>Total Tasks:</strong> {stats.total["tasks.run_training"]}</p>
-                                <h3 className="text-xl font-bold mt-4 mb-2">Pool</h3>
-                                <p><strong>Implementation:</strong> {stats.pool.implementation}</p>
-                                <p><strong>Max Concurrency:</strong> {stats.pool["max-concurrency"]}</p>
-                                <p><strong>Processes:</strong> {stats.pool.processes.join(", ")}</p>
-                                <h3 className="text-xl font-bold mt-4 mb-2">Broker</h3>
-                                <p><strong>Hostname:</strong> {stats.broker.hostname}</p>
-                                <p><strong>User ID:</strong> {stats.broker.userid}</p>
-                                <p><strong>Port:</strong> {stats.broker.port}</p>
-                                <h3 className="text-xl font-bold mt-4 mb-2">Resource Usage</h3>
-                                <p><strong>User Time:</strong> {stats.rusage.utime} seconds</p>
-                                <p><strong>System Time:</strong> {stats.rusage.stime} seconds</p>
-                                <p><strong>Max RSS:</strong> {stats.rusage.maxrss} KB</p>
+                                <p><strong>{t("totalTasks")}:</strong> {stats.total["tasks.run_training"]}</p>
+                                <h3 className="text-xl font-bold mt-4 mb-2">{t("pool")}</h3>
+                                <p><strong>{t("implementation")}:</strong> {stats.pool.implementation}</p>
+                                <p><strong>{t("maxConcurrency")}:</strong> {stats.pool["max-concurrency"]}</p>
+                                <p><strong>{t("processes")}:</strong> {stats.pool.processes.join(", ")}</p>
+                                <h3 className="text-xl font-bold mt-4 mb-2">{t("broker")}</h3>
+                                <p><strong>{t("hostname")}:</strong> {stats.broker.hostname}</p>
+                                <p><strong>{t("userid")}:</strong> {stats.broker.userid}</p>
+                                <p><strong>{t("port")}:</strong> {stats.broker.port}</p>
+                                <h3 className="text-xl font-bold mt-4 mb-2">{t("resourceUsage")}</h3>
+                                <p><strong>{t("userTime")}:</strong> {stats.rusage.utime} {t("seconds")}</p>
+                                <p><strong>{t("systemTime")}:</strong> {stats.rusage.stime} {t("seconds")}</p>
+                                <p><strong>{t("maxRss")}:</strong> {stats.rusage.maxrss} KB</p>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             ) : (
-                <p>No worker statistics available.</p>
+                <p>{t("noStats")}</p>
             )}
         </div>
     );
