@@ -1,0 +1,55 @@
+@startuml state_verify_bom_and_link
+
+note as N1
+This process verifies the BOM file and its associated .link file.
+It ensures that the BOM is valid and that the .link file
+meets all verification requirements.
+end note
+
+[*] --> EndpointCalled : Cals verify_bom_and_link endpoint
+EndpointCalled --> SavedBOMFile : Save uploaded BOM file[success]
+EndpointCalled --> FileSaveError : Save uploaded BOM file[failure]
+
+SavedBOMFile --> ValidatedBOM : Validate BOM against schema[success]
+SavedBOMFile --> BOMInvalid : Validate BOM against schema[failure]
+ValidatedBOM --> VerifiedSignature : Extract and verify BOM signature[success]
+ValidatedBOM --> SignatureInvalid : Extract and verify BOM signature[failure]
+VerifiedSignature --> ExtractedLinkReference : Extract .link file reference[success]
+VerifiedSignature --> LinkReferenceMissing : Extract .link file reference[failure]
+ExtractedLinkReference --> DownloadedFromMinIO : Download .link file from MinIO[success]
+ExtractedLinkReference --> MinIODownloadError : Download .link file from MinIO[failure]
+DownloadedFromMinIO --> VerifyLinkFile : Start verifying .link file
+
+VerifyLinkFile --> VerificationSuccess : Verification successful
+VerifyLinkFile --> InvalidSignature : Invalid signature
+VerifyLinkFile --> LayoutExpired : Layout expired
+VerifyLinkFile --> LinkNotFound : No valid link files found
+VerifyLinkFile --> ThresholdNotMet : Threshold requirements not met
+VerifyLinkFile --> ArtifactRuleViolation : Artifact rule violation
+VerifyLinkFile --> LayoutFileMissing : Signed layout file missing
+VerifyLinkFile --> LayoutVerificationError : Error verifying layout
+
+note right of VerifyLinkFile
+This state uses a shared helper function for verifying .link files.
+The same function is used in the verify_in-toto_link process.
+end note
+
+FileSaveError --> [*]
+BOMInvalid --> [*]
+SignatureInvalid --> [*]
+LinkReferenceMissing --> [*]
+MinIODownloadError --> [*]
+
+
+VerificationSuccess --> [*]
+InvalidSignature --> [*]
+LayoutExpired --> [*]
+LinkNotFound --> [*]
+ThresholdNotMet --> [*]
+ArtifactRuleViolation --> [*]
+LayoutFileMissing --> [*]
+LayoutVerificationError --> [*]
+
+
+
+@enduml

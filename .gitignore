@@ -7,6 +7,8 @@
 layout.json
 signed_layout.json
 worker_public_key.json
+venv/
+.results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -24,7 +26,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/

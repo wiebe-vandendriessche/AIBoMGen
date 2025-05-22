@@ -1,4 +1,0 @@
-celery
-python-dotenv
-docker
-boto3
