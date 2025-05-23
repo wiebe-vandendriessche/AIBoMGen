@@ -18,12 +18,4 @@ FileSaveError --> [*]
 VerificationSuccess --> [*]
 VerificationFailed --> [*]
 
-note right of SavedLinkFile
-The .link file is not verified in this endpoint.
-It is assumed to have been verified beforehand
-using the /verify_in-toto_link endpoint.
-This endpoint only checks material and product hashes
-against the already verified .link file.
-end note
-
 @enduml
