@@ -12,14 +12,6 @@ CompareHashes --> HashMatch : Hash matches
 CompareHashes --> HashMismatch : Hash mismatch
 CompareHashes --> FileNotFound : File not found in link file
 
-note left of LoadLinkFile
-The .link file is not verified in this endpoint.
-It is assumed to have been verified beforehand
-using the /verify_in-toto_link endpoint.
-This endpoint only checks the hash of the uploaded file
-against the already verified .link file.
-end note
-
 FileSaveError --> [*]
 HashMatch --> [*]
 HashMismatch --> [*]

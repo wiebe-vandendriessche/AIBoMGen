@@ -41,7 +41,7 @@ def transform_to_cyclonedx(bom_data):
 
     # BOM: metadata =========================================================================================================
     bom.metadata.timestamp = datetime.datetime.now()
-    
+
     # Add the cycloneDX library component to the BOM metadata
     bom.metadata.tools.components.add(cdx_lib_component())
 
@@ -101,55 +101,75 @@ def transform_to_cyclonedx(bom_data):
     celery_task_info = environment.get("celery_task_info", {})
     docker_info = environment.get("docker_info", {})
     vulnerability_scan = environment.get("vulnerability_scan", {})
-    
+
     environment_properties = [
         Property(name="OS", value=environment.get("os", "Unknown")),
-        Property(name="Python Version", value=environment.get("python_version", "Unknown")),
-        Property(name="TensorFlow Version", value=environment.get("tensorflow_version", "Unknown")),
-        Property(name="CPU Count", value=str(environment.get("cpu_count", "Unknown"))),
-        Property(name="Memory Total (MB)", value=str(environment.get("memory_total", "Unknown"))),
-        Property(name="Disk Usage (MB)", value=str(environment.get("disk_usage", "Unknown"))),
-        Property(name="Request Time", value=environment.get("request_time", "Unknown")),
-        Property(name="Start Training Time", value=environment.get("start_training_time", "Unknown")),
-        Property(name="Start AIBoM Time", value=environment.get("start_aibom_time", "Unknown")),
-        Property(name="Training Time (seconds)", value=str(environment.get("training_time", "Unknown"))),
+        Property(name="Python Version", value=environment.get(
+            "python_version", "Unknown")),
+        Property(name="TensorFlow Version", value=environment.get(
+            "tensorflow_version", "Unknown")),
+        Property(name="CPU Count", value=str(
+            environment.get("cpu_count", "Unknown"))),
+        Property(name="Memory Total (MB)", value=str(
+            environment.get("memory_total", "Unknown"))),
+        Property(name="Disk Usage (MB)", value=str(
+            environment.get("disk_usage", "Unknown"))),
+        Property(name="Request Time", value=environment.get(
+            "request_time", "Unknown")),
+        Property(name="Start Training Time", value=environment.get(
+            "start_training_time", "Unknown")),
+        Property(name="Start AIBoM Time", value=environment.get(
+            "start_aibom_time", "Unknown")),
+        Property(name="Training Time (seconds)", value=str(
+            environment.get("training_time", "Unknown"))),
         Property(name="Job ID", value=environment.get("job_id", "Unknown")),
-        Property(name="Unique Directory", value=environment.get("unique_dir", "Unknown")),
+        Property(name="Unique Directory",
+                 value=environment.get("unique_dir", "Unknown")),
     ]
 
     # Add GPU Info as individual properties
     for gpu in gpu_info:
         environment_properties.extend([
             Property(name="GPU Name", value=gpu.get("name", "Unknown")),
-            Property(name="GPU Memory Total (MB)", value=str(gpu.get("memory_total", "Unknown"))),
-            Property(name="GPU Memory Used (MB)", value=str(gpu.get("memory_used", "Unknown"))),
+            Property(name="GPU Memory Total (MB)", value=str(
+                gpu.get("memory_total", "Unknown"))),
+            Property(name="GPU Memory Used (MB)", value=str(
+                gpu.get("memory_used", "Unknown"))),
         ])
 
     # Add Celery Task Info as individual properties
     environment_properties.extend([
-        Property(name="Celery Task ID", value=celery_task_info.get("task_id", "Unknown")),
-        Property(name="Celery Task Name", value=celery_task_info.get("task_name", "Unknown")),
-        Property(name="Celery Queue", value=celery_task_info.get("queue", "Unknown")),
+        Property(name="Celery Task ID",
+                 value=celery_task_info.get("task_id", "Unknown")),
+        Property(name="Celery Task Name",
+                 value=celery_task_info.get("task_name", "Unknown")),
+        Property(name="Celery Queue",
+                 value=celery_task_info.get("queue", "Unknown")),
     ])
 
     # Add Docker Info as individual properties
     environment_properties.extend([
-        Property(name="Docker Container ID", value=docker_info.get("container_id", "Unknown")),
-        Property(name="Docker Image Name", value=docker_info.get("image_name", "Unknown")),
-        Property(name="Docker Image ID", value=docker_info.get("image_id", "Unknown")),
+        Property(name="Docker Container ID",
+                 value=docker_info.get("container_id", "Unknown")),
+        Property(name="Docker Image Name",
+                 value=docker_info.get("image_name", "Unknown")),
+        Property(name="Docker Image ID",
+                 value=docker_info.get("image_id", "Unknown")),
     ])
 
     # Add Vulnerability Scan Info as individual properties
     if "error" in vulnerability_scan:
         environment_properties.append(
-            Property(name="Vulnerability Scan Error", value=vulnerability_scan["error"])
+            Property(name="Vulnerability Scan Error",
+                     value=vulnerability_scan["error"])
         )
     else:
         for severity, count in vulnerability_scan.items():
             environment_properties.append(
-                Property(name=f"Vulnerability Scan {severity}", value=str(count))
+                Property(
+                    name=f"Vulnerability Scan {severity}", value=str(count))
             )
-    
+
     environment_component = Component(
         type=ComponentType.CONTAINER,
         name="Training Environment",
@@ -158,16 +178,16 @@ def transform_to_cyclonedx(bom_data):
         bom_ref="training-environment@1.0"
     )
     bom.components.add(environment_component)
-    
+
     # Materials and Products use in DATA and MACHINE LEARNING component =========================================================================================================
-    
+
     # Add materials as components
     material_components = []
     dataset_hash = None
     dataset_definition_hash = None
     architecture_summary = "Unknown"
     dataset_properties = []
-    
+
     for material_path, material_info in bom_data.get("materials", {}).items():
         minio_path = material_path  # Use MinIO path instead of local path
         if material_path.endswith("model.keras"):
@@ -180,19 +200,23 @@ def transform_to_cyclonedx(bom_data):
                     architecture_summary_lines = ["Name\tType\tShape"]
                     for layer in model.layers:
                         # Use layer.output.shape to get the output tensor's shape
-                        output_shape = getattr(layer.output, 'shape', 'Unknown')
+                        output_shape = getattr(
+                            layer.output, 'shape', 'Unknown')
                         architecture_summary_lines.append(
                             f"{layer.name}\t{layer.__class__.__name__}\t{output_shape}"
                         )
                     # Join the lines into a single string
-                    architecture_summary = "\n".join(architecture_summary_lines)
+                    architecture_summary = "\n".join(
+                        architecture_summary_lines)
                 except Exception as e:
-                    print(f"Failed to load model and extract architecture summary from {local_path}: {e}")
+                    print(
+                        f"Failed to load model and extract architecture summary from {local_path}: {e}")
             continue
         elif material_path.endswith(".zip") or material_path.endswith(".csv"):
             # Handle dataset properties
             dataset_hash = material_info.get("sha256", "")
-            dataset_properties.append(Property(name="Dataset MinIO Path", value=minio_path))
+            dataset_properties.append(
+                Property(name="Dataset MinIO Path", value=minio_path))
         elif material_path.endswith(".yaml"):
             # Handle dataset definition properties
             dataset_definition_hash = material_info.get("sha256", "")
@@ -201,14 +225,21 @@ def transform_to_cyclonedx(bom_data):
                 try:
                     with open(local_path, "r") as file:
                         dataset_definition = yaml.safe_load(file)
-                        preprocessing = dataset_definition.get("preprocessing", {})
+                        preprocessing = dataset_definition.get(
+                            "preprocessing", {})
                         dataset_properties.extend([
-                            Property(name="Input Shape", value=str(dataset_definition.get("input_shape", "Unknown"))),
-                            Property(name="Output Shape", value=str(dataset_definition.get("output_shape", "Unknown"))),
-                            Property(name="Preprocessing", value=json.dumps(preprocessing, indent=4)),  # Properly formatted JSON
+                            Property(name="Input Shape", value=str(
+                                dataset_definition.get("input_shape", "Unknown"))),
+                            Property(name="Output Shape", value=str(
+                                dataset_definition.get("output_shape", "Unknown"))),
+                            Property(name="Preprocessing", value=json.dumps(
+                                preprocessing, indent=4)),  # Properly formatted JSON
                         ])
                 except Exception as e:
-                    print(f"Failed to read dataset definition from {local_path}: {e}")
+                    print(
+                        f"Failed to read dataset definition from {local_path}: {e}")
+
+    data_component = None
 
     # Make DATA component use dataset and dataset definition
     if dataset_hash and dataset_definition_hash:
@@ -218,11 +249,13 @@ def transform_to_cyclonedx(bom_data):
             description="Dataset and dataset definition used for training",
             hashes=[
                 HashType(alg=HashAlgorithm.SHA_256, content=dataset_hash),
-                HashType(alg=HashAlgorithm.SHA_256, content=dataset_definition_hash),
+                HashType(alg=HashAlgorithm.SHA_256,
+                         content=dataset_definition_hash),
             ],
             properties=dataset_properties + [
                 Property(name="Dataset Hash", value=dataset_hash),
-                Property(name="Dataset Definition Hash", value=dataset_definition_hash),
+                Property(name="Dataset Definition Hash",
+                         value=dataset_definition_hash),
             ],
             bom_ref="training-dataset@1.0"
         )
@@ -251,7 +284,6 @@ def transform_to_cyclonedx(bom_data):
                 except Exception as e:
                     print(f"Failed to read metrics from {local_path}: {e}")
 
-
     # Combine fit_params, optional_params, and trained model into a MACHINE_LEARNING_MODEL component
     fit_params = bom_data.get("fit_params", {})
     optional_params = bom_data.get("optional_params", {})
@@ -267,8 +299,10 @@ def transform_to_cyclonedx(bom_data):
             HashType(alg=HashAlgorithm.SHA_256, content=metrics_hash),
         ],
         properties=[
-            Property(name="Framework", value=optional_params.get("framework", "Unknown")),
-            Property(name="License", value=optional_params.get("license_name", "Unknown")),
+            Property(name="Framework", value=optional_params.get(
+                "framework", "Unknown")),
+            Property(name="License", value=optional_params.get(
+                "license_name", "Unknown")),
             Property(name="Architecture Summary", value=architecture_summary),
             Property(name="Trained Model Hash", value=trained_model_hash),
             Property(name="Metrics Hash", value=metrics_hash),
@@ -294,12 +328,13 @@ def transform_to_cyclonedx(bom_data):
             ),
         )
         bom.external_references = [external_reference]
-        
+
     # Relationships (dependencies) =========================================================================================================
-    
+
     # Register dependencies between components
     if model_component and data_component and environment_component:
-        bom.register_dependency(model_component, [data_component, environment_component])
+        bom.register_dependency(
+            model_component, [data_component, environment_component])
 
     return bom
 
@@ -321,7 +356,7 @@ def serialize_bom(bom, output_path, schema_version=SchemaVersion.V1_6):
         pretty_json = json.dumps(json.loads(serialized_json), indent=4)
 
         # Validation
-        
+
         json_validator = JsonStrictValidator(schema_version)
         try:
             validation_errors = json_validator.validate_str(pretty_json)
@@ -351,6 +386,8 @@ def serialize_bom(bom, output_path, schema_version=SchemaVersion.V1_6):
             f"Serialization failed due to missing optional dependency: {error}")
 
 # deprecated
+
+
 def sign_bom(bom_path, private_key_path, signature_path):
     """
     Sign the BOM using the platform's private key.
@@ -365,7 +402,8 @@ def sign_bom(bom_path, private_key_path, signature_path):
         with open(private_key_path, "rb") as key_file:
             private_key = load_pem_private_key(key_file.read(), password=None)
             if not isinstance(private_key, Ed25519PrivateKey):
-                raise ValueError("The provided private key is not an Ed25519 key.")
+                raise ValueError(
+                    "The provided private key is not an Ed25519 key.")
 
         # Load the BOM content
         with open(bom_path, "r") as bom_file:
@@ -399,7 +437,8 @@ def sign_and_include_bom_as_property(bom, private_key_path):
         with open(private_key_path, "rb") as key_file:
             private_key = load_pem_private_key(key_file.read(), password=None)
             if not isinstance(private_key, Ed25519PrivateKey):
-                raise ValueError("The provided private key is not an Ed25519 key.")
+                raise ValueError(
+                    "The provided private key is not an Ed25519 key.")
 
         # Sign the serialized BOM content
         signature = private_key.sign(serialized_json.encode())
