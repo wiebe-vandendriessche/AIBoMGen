@@ -7,7 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Locale, routing, usePathname, useRouter } from "@/i18n/routing";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { routing } from "@/i18n/routing";
+import { Locale } from "next-intl";
 import { useParams } from "next/navigation";
 import { ReactNode } from "react";
 
