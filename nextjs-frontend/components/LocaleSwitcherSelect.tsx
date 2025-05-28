@@ -11,7 +11,7 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { Locale } from "next-intl";
 import { useParams } from "next/navigation";
-import { ReactNode } from "react";
+import { ChangeEvent, ReactNode, useTransition } from "react";
 
 type Props = {
   children: ReactNode;
@@ -19,20 +19,26 @@ type Props = {
   label: string;
 };
 
-export default function LocaleSwitcherSelect({ defaultValue, label }: Props) {
+export default function LocaleSwitcherSelect({ children, defaultValue, label }: Props) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
   const params = useParams();
 
   function onSelectChange(nextLocale: string) {
-    router.replace(
-      { pathname, query: params },
-      { locale: nextLocale as Locale }
-    );
+    startTransition(() => {
+      router.replace(
+        // @ts-expect-error -- TypeScript will validate that only known `params`
+        // are used in combination with a given `pathname`. Since the two will
+        // always match for the current route, we can skip runtime checks.
+        { pathname, params },
+        { locale: nextLocale as Locale }
+      );
+    });
   }
 
   return (
-    <Select defaultValue={defaultValue} onValueChange={onSelectChange}>
+    <Select defaultValue={defaultValue} onValueChange={onSelectChange} disabled={isPending}>
       <SelectTrigger
         className="w-[80px] h-8 border-none bg-transparent focus:ring-0 focus:ring-offset-0"
         aria-label={label}

@@ -12,8 +12,8 @@ import { setRequestLocale } from "next-intl/server";
 import { use } from "react";
 
 export default function Home({params}: Readonly<{params: Promise<{locale: string}>}>) {
-    const {locale} = use(params);
-    // Enable static rendering
+  const {locale} = use(params);
+  // Enable static rendering
   setRequestLocale(locale);
   const t = useTranslations('HomePage');
   return (
