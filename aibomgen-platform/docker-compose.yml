@@ -70,7 +70,6 @@ services:
     env_file:
       - .env
     secrets:
-      - deprecated_private_key
       - worker_private_key
       - worker_public_key
       - signed_layout
@@ -90,7 +89,6 @@ services:
     env_file:
       - .env
     secrets:
-      - deprecated_private_key
       - worker_private_key
       - worker_public_key
       - signed_layout
@@ -168,8 +166,6 @@ volumes:
     driver: local
 
 secrets:
-  deprecated_private_key:
-    file: ./secrets/private_key.pem
   worker_private_key:
     file: ./secrets/worker_private_key.pem
   worker_public_key:
