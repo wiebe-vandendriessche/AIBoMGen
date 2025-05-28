@@ -252,43 +252,45 @@ const AppSidebar = () => {
                             </SidebarMenuItem>
                         </SidebarMenu>
                     </SidebarGroupContent>
+                </SidebarGroup>
+                <SidebarGroup>
                     <SidebarGroupLabel>{t("verification")}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                    <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip={t("verifyAIBOM")}>
-                                <Link href="/verification/bom">
-                                    <ShieldCheck />
-                                    <span>{t("verifyAIBOM")}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip={t("verifyFileHash")}>
-                                <Link href="/verification/file">
-                                    <Hash />
-                                    <span>{t("verifyFileHash")}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip={t("verifyLinkFile")}>
-                                <Link href="/verification/link">
-                                    <LinkIcon />
-                                    <span>{t("verifyLinkFile")}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild tooltip={t("verifyStorageIntegrity")}>
-                                <Link href="/verification/storage">
-                                    <DatabaseZap />
-                                    <span>{t("verifyStorageIntegrity")}</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-                </SidebarGroupContent>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild tooltip={t("verifyAIBOM")}>
+                                    <Link href="/verification/bom">
+                                        <ShieldCheck />
+                                        <span>{t("verifyAIBOM")}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild tooltip={t("verifyFileHash")}>
+                                    <Link href="/verification/file">
+                                        <Hash />
+                                        <span>{t("verifyFileHash")}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild tooltip={t("verifyLinkFile")}>
+                                    <Link href="/verification/link">
+                                        <LinkIcon />
+                                        <span>{t("verifyLinkFile")}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild tooltip={t("verifyStorageIntegrity")}>
+                                    <Link href="/verification/storage">
+                                        <DatabaseZap />
+                                        <span>{t("verifyStorageIntegrity")}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>
             <SidebarFooter>
