@@ -13,6 +13,7 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { JobProvider } from "@/components/context/JobContext";
 import ClientToaster from "@/components/ClientToaster";
+import { setRequestLocale } from "next-intl/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,9 @@ export const metadata: Metadata = {
   }
 };
 
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export default async function RootLayout({
   children,
@@ -44,11 +48,13 @@ export default async function RootLayout({
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
 
-  // Ensure that the incoming `locale` is valid
-  const { locale } = await params;
+  const {locale} = await params;
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
+
+  // Enable static rendering
+  setRequestLocale(locale);
 
   const messages = (await import(`../../messages/${locale}.json`)).default;
 
