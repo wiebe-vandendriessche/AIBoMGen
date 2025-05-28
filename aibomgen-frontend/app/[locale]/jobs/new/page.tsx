@@ -177,7 +177,7 @@ export default function NewJobPage() {
                         type="multiple"
                         className="space-y-3"
                         value={openItems}
-                        onValueChange={(values) => setOpenItems(values)}
+                        onValueChange={(values: string[]) => setOpenItems(values)}
                     >
                         {/* Required Parameters */}
                         <AccordionItem value="required-parameters">
