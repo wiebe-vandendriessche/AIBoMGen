@@ -2,11 +2,11 @@ import { Configuration, LogLevel } from "@azure/msal-browser";
 
 export const msalConfig: Configuration = {
   auth: {
-    clientId: "eae0c268-a92d-46cc-b66f-bc9aca2281c4", // Replace with your Azure AD App's Client ID
-    authority: "https://login.microsoftonline.com/common", // Use the common endpoint for multi-tenant
-    redirectUri: "http://localhost:3000",
-    postLogoutRedirectUri: "http://localhost:3000", // Redirect URI after logout
-    navigateToLoginRequestUrl: false, // Set to true if you want to redirect to the login page after login
+    clientId: process.env.CLIENT_ID || "", // Use CLIENT_ID from .env
+    authority: "https://login.microsoftonline.com/common",
+    redirectUri: process.env.REDIRECT_URI || "", // Use REDIRECT_URI from .env
+    postLogoutRedirectUri: process.env.POST_LOGOUT_REDIRECT_URI || "", // Use POST_LOGOUT_REDIRECT_URI from .env
+    navigateToLoginRequestUrl: false,
   },
   cache: {
     cacheLocation: "sessionStorage", // Use sessionStorage to store tokens
@@ -41,7 +41,7 @@ export const msalConfig: Configuration = {
 
 export const loginRequest = {
   scopes: [
-    "api://a65becdd-c8b9-4a90-9c8a-9d9c526aa130/user_impersonation", // Replace with the Backend API App's scope
-    "User.Read", // Required for fetching profile photo
+    process.env.BACKEND_SCOPE || "", // Use BACKEND_SCOPE from .env
+    "User.Read",
   ],
 };

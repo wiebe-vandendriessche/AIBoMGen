@@ -15,6 +15,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
   - This app registration must have delegated permissions to access the backend API (the backend's app registration).
   - Configure the required API permissions in Azure and grant admin consent.
 
+
+---
+
 ### Setup
 
 1. **Install dependencies:**
@@ -22,18 +25,31 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
    npm install
    ```
 
-2. **Run the development server:**
+2. **Create a `.env` file:**
+   Copy the `.env.example` file (if available) or create a new `.env` file in the root of the project. Add the following environment variables:
+
+   ```properties
+   API_BASE_URL="http://localhost:8000"
+   CLIENT_ID="your-frontend-app-client-id"
+   REDIRECT_URI="http://localhost:3000"
+   POST_LOGOUT_REDIRECT_URI="http://localhost:3000"
+   BACKEND_SCOPE="api://<backend-app-id>/user_impersonation"
+   ```
+
+   Replace the placeholder values with your actual configuration.
+
+3. **Run the development server:**
    ```bash
    npm run dev
    ```
 
-3. **Build and run in production:**
+4. **Build and run in production:**
    ```bash
    npm run build
    npm run start
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
@@ -59,17 +75,13 @@ The frontend registration should have the following settings:
 
 ## Configuration
 
-- **MSAL Configuration:**  
-  Edit `components/configurations/msalConfig.tsx` and set:
-  - `clientId` to your frontend Azure App Registration's client ID.
-  - `authority` to your Azure tenant or use `common` for multi-tenant.
-  - `redirectUri` and `postLogoutRedirectUri` as needed.
-  - The `scopes` in `loginRequest` must match the exposed API scope of your backend app registration (e.g., `api://<backend-app-id>/user_impersonation`).
+Configuration is managed via a `.env` file. Below are the required environment variables:
 
-- **API Service:**  
-  Edit `services/api.tsx` and set:
-  - `API_BASE_URL` to your backend's URL (default: `http://localhost:8000`).
-  - The `scopes` parameter in API calls must match your backend API's scope.
+- **API_BASE_URL:** The base URL of your backend API (e.g., `http://localhost:8000`).
+- **CLIENT_ID:** The client ID of your frontend Azure App Registration.
+- **REDIRECT_URI:** The redirect URI for authentication (e.g., `http://localhost:3000`).
+- **POST_LOGOUT_REDIRECT_URI:** The URI to redirect to after logout (e.g., `http://localhost:3000`).
+- **BACKEND_SCOPE:** The scope for accessing the backend API (e.g., `api://<backend-app-id>/user_impersonation`).
 
 ---
 

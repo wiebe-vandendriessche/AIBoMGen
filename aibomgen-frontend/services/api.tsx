@@ -1,6 +1,6 @@
 import { useMsal } from "@azure/msal-react";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = process.env.API_BASE_URL || ""; // Use API_BASE_URL from .env
 
 const getAccessToken = async (instance: any, scopes: string[]) => {
     const activeAccount = instance.getActiveAccount();
@@ -24,7 +24,7 @@ export const fetcher = async (
         body = null,
         queryParams = {},
         authRequired = false,
-        scopes = ["api://a65becdd-c8b9-4a90-9c8a-9d9c526aa130/user_impersonation"],
+        scopes = [process.env.BACKEND_SCOPE || ""], // Use BACKEND_SCOPE from .env
     }: {
         method?: string;
         body?: any;
