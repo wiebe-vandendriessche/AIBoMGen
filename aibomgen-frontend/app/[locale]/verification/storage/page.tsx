@@ -18,9 +18,9 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 
 const verifySchema = z.object({
     link_file: z
@@ -35,7 +35,6 @@ type VerifyFormValues = z.infer<typeof verifySchema>;
 export default function VerifyMinioStoragePage() {
     const [loading, setLoading] = useState(false);
     const { instance } = useMsal();
-    const router = useRouter();
     const t = useTranslations("Verification");
 
     const form = useForm<VerifyFormValues>({
@@ -129,12 +128,14 @@ export default function VerifyMinioStoragePage() {
                         {t("linkFileFirst")}
                         <br />
                         <Button
+                            asChild
                             variant="outline"
                             size="sm"
                             className="mt-2"
-                            onClick={() => router.push("/verification/link")}
                         >
-                            {t("gotoLinkVerification")}
+                            <Link href="/verification/link">
+                                {t("gotoLinkVerification")}
+                            </Link>
                         </Button>
                     </AlertDescription>
                 </div>

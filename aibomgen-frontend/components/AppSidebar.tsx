@@ -19,7 +19,7 @@ import {
     SidebarMenuSubItem,
     SidebarSeparator,
 } from "@/components/ui/sidebar"
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { useTranslations } from "next-intl";

@@ -16,14 +16,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useTheme } from "next-themes";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
 import { useTranslations } from "next-intl";
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const t = useTranslations("Settings");
 

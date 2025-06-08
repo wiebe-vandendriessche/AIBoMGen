@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut, Moon, Settings, Sun, User } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
     DropdownMenu,
