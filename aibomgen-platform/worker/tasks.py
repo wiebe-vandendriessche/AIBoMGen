@@ -27,6 +27,8 @@ from training_logic import (
 def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, optional_params=None, fit_params=None):
     """Training task with support for tabular and image data."""
 
+    e = None
+
     # Create a temporary directory
     temp_dir = os.path.join("/tmp", unique_dir)
     os.makedirs(temp_dir, exist_ok=True)
@@ -356,7 +358,8 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
             "message": "Training completed successfully and AIBoM generated.",
         }
         return result
-    except Exception as e:
+    except Exception as ex:
+        e = ex  # Assign the exception to the variable
         task_logger.error(f"An error occurred: {str(e)}")
 
         # remove from minio if the task fails
@@ -374,7 +377,7 @@ def run_training(unique_dir, model_url, dataset_url, dataset_definition_url, opt
         except FileNotFoundError:
             task_logger.warning(
                 f"Output files not found in MinIO for unique_dir: {unique_dir}")
-        except Exception as e:
+        except Exception as ex:
             task_logger.error(f"Failed to remove files from MinIO: {str(e)}")
 
         return {
