@@ -18,7 +18,7 @@ Refer to the respective README files for detailed setup instructions, usage, and
 
 ## Publication and Dissertation
 
-This repository v1.0 release is prepared for publication on [Zenodo](https://zenodo.org/records/15536533).  
+This repository v1.1 release is prepared for publication on [Zenodo](https://zenodo.org/records/15536533).  
 It is part of a [master's dissertation]().
 
 ## Contact
