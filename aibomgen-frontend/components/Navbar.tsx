@@ -94,7 +94,7 @@ const Navbar = () => {
         try {
             // Step 1: Login with OpenID Connect scopes
             const loginResponse = await instance.loginPopup({
-                scopes: ["openid", "profile", "offline_access"], // Only OpenID Connect scopes
+                scopes: ["openid", "profile", "offline_access", "User.Read"], // Only OpenID Connect scopes
             });
 
             const account = loginResponse.account;
