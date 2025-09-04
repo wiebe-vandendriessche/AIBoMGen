@@ -28,3 +28,8 @@ For inquiries, feel free to reach out:
 Wiebe Vandendriessche  
 - Email: wiebe.vandendriessche@ugent.be | wiebe.vandendriessche@gmail.com  
 - LinkedIn: [Wiebe Vandendriessche](https://www.linkedin.com/in/wiebe-vandendriessche/?locale=en_US)
+
+## Acknowledgements
+
+This work has been partially supported by the CRACY project, funded by the European Union’s Digital Europe Programme under grant agreement No 101190492.
+
